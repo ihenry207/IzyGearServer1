@@ -66,10 +66,11 @@ const ListingSnowSki = new mongoose.Schema({
         required: true
       },
       listingPhotoPaths: [{ type: String }], // Store photo URLs
-        title: {
+      title: {
         type: String,
         required: true
        },
+
        
 }, { timestamps: true}
 )

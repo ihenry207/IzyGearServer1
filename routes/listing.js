@@ -46,6 +46,9 @@ router.post("/create", upload.array("listingPhotos"), async (req, res) =>{
           }
       
         const listingPhotoPaths = listingPhotos.map((file) => file.path)
+        
+        // Create the title based on gender, brand, category, and size
+        const title = `${gender} ${brand} ${category}, ${size} cm`;
 
         const newListing = new Listing({
             creator,
@@ -64,6 +67,8 @@ router.post("/create", upload.array("listingPhotos"), async (req, res) =>{
             boots,
             bindings,
             description,
+            listingPhotoPaths,
+            title, // Add the title field to the newListing object
         })
         await newListing.save()
         res.status(200).json(newListing)
