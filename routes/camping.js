@@ -1,5 +1,7 @@
 const router = require("express").Router();
 const multer = require("multer");
+const sharp = require("sharp");//resize images
+const fs = require("fs");
 const ListingCamping = require("../models/ListingCamping");
 const User = require("../models/User");
 
@@ -42,7 +44,33 @@ router.post("/create", upload.array("listingPhotos"), async (req, res) => {
         return res.status(400).send("No file uploaded.");
       }
   
-      const listingPhotoPaths = listingPhotos.map((file) => file.path);
+      for (const file of listingPhotos) {
+        const fileExtension = file.originalname.split(".").pop().toLowerCase();
+  
+        if (fileExtension === "heic") {
+          // If HEIC image is detected, send response and return
+          return res.status(400).json({
+            message: "HEIC images are not supported. Please upload images in JPEG, PNG, WebP, or AVIF format.",
+          });
+        }
+      }
+  
+      const listingPhotoPaths = [];
+  
+      for (const file of listingPhotos) {
+        const resizedImagePath = `public/uploads/resized-${file.filename}`;
+  
+        try {
+          await sharp(file.path)
+            .resize({ width: 300, height: 270, fit: "cover" })
+            .toFile(resizedImagePath);
+        } catch (error) {
+          console.error(`Error processing image:`, error);
+          continue; // Skip this image and move to the next one
+        }
+  
+        listingPhotoPaths.push(resizedImagePath);
+      }
   
       const title = `${brand} ${name}`;
   
@@ -90,5 +118,16 @@ router.get("/", async (req, res) => {
     console.log(err);
   }
 });
+
+/* LISTING DETAILS */
+router.get("/:listingId", async (req, res) => {
+  try {
+    const { listingId } = req.params
+    const listing = await Listing.findById(listingId).populate("creator")
+    res.status(202).json(listing)
+  } catch (err) {
+    res.status(404).json({ message: "Listing can not found!", error: err.message })
+  }
+})
 
 module.exports = router;

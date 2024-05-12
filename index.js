@@ -8,6 +8,8 @@ const authRoutes = require("./routes/auth.js")
 const listingSkiSnowRoutes = require("./routes/listing.js")
 const listingBikingRoutes = require("./routes/biking.js");
 const listingCampingRoutes = require("./routes/camping.js");
+const bookingRoutes = require("./routes/Booking.js")
+const userRoutes = require("./routes/user.js")
 
 // Configure CORS options
 const corsOptions = {
@@ -28,6 +30,8 @@ app.use("/auth", authRoutes);
 app.use("/gears/skisnow", listingSkiSnowRoutes);
 app.use("/gears/biking", listingBikingRoutes);
 app.use("/gears/camping", listingCampingRoutes);
+app.use("/bookings", bookingRoutes)
+app.use("/users", userRoutes)
 //Mongoose setup
 const PORT = 3001
 mongoose.connect(process.env.MONGO_URL, {
