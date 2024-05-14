@@ -25,8 +25,8 @@ router.post("/create", async (req, res) => {
 
     const newBooking = new Booking({
       customerId,
-      hostId,
       listingId,
+      hostId,
       startDate,
       endDate,
       totalPrice,

@@ -74,7 +74,7 @@ router.post("/create", upload.array("listingPhotos"), async (req, res) => {
     }
 
     // Create the title based on gender, brand, category, and size
-    const title = `${gender} ${brand} Bike, ${size} cm`;
+    const title = `${gender} ${brand} Bike, ${size}`;
 
     const newListing = new ListingBiking({
       creator,
@@ -126,7 +126,7 @@ router.get("/", async (req, res) => {
 router.get("/:listingId", async (req, res) => {
   try {
     const { listingId } = req.params
-    const listing = await Listing.findById(listingId).populate("creator")
+    const listing = await ListingBiking.findById(listingId).populate("creator")
     res.status(202).json(listing)
   } catch (err) {
     res.status(404).json({ message: "Listing can not found!", error: err.message })

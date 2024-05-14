@@ -52,7 +52,7 @@ router.patch("/:userId/:listingId", async (req, res) => {
     }
   });
 
-/* GET GEAR ones you own LIST */
+/* GET GEAR, ones you own LIST */
 router.get("/:userId/listings", async (req, res) => {
     try {
       const { userId } = req.params;
