@@ -75,5 +75,5 @@ const ListingSnowSki = new mongoose.Schema({
 }, { timestamps: true}
 )
 
-const Listing = mongoose.model("ListingSkiSnow", ListingSnowSki)
-module.exports = Listing
+const ListingSkiSnow = mongoose.model("ListingSkiSnow", ListingSnowSki)
+module.exports = ListingSkiSnow

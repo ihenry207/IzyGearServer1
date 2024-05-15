@@ -15,7 +15,7 @@ const userRoutes = require("./routes/user.js")
 const corsOptions = {
     origin: ["http://localhost:3000", "http://10.1.82.120:3000", "http://10.1.82.42:3000",
     "http://10.1.82.57:3000"], // Allow requests from your computer's IP or hostname
-    methods: ["GET", "POST", "PUT", "DELETE"],
+    methods: ["GET", "POST", "PUT", "PATCH", "DELETE"],
     allowedHeaders: ["Content-Type", "Authorization"],
   };
 
@@ -23,7 +23,6 @@ app.use(cors(corsOptions))
 app.use(express.json())
 app.use(express.static('public'))
 
-//app.use()
 
 //routes
 app.use("/auth", authRoutes);
