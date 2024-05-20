@@ -1,21 +1,25 @@
 const router = require("express").Router();
-const multer = require("multer");
-const sharp = require("sharp");//resize images
-const fs = require("fs");
+const sharp = require("sharp");
+const { S3Client } = require("@aws-sdk/client-s3");
+const { Upload } = require("@aws-sdk/lib-storage");
+const multer = require('multer');
+const upload = multer({ storage: multer.memoryStorage() });
 const Listing = require("../models/ListingSkiSnow");
-const User = require("../models/User")
+const User = require("../models/User");
+const { v4: uuidv4 } = require('uuid');
+const path = require('path');
 
-/* Configuration Multer for File Upload */
-const storage = multer.diskStorage({
-    destination: function (req, file, cb) {
-      cb(null, "public/uploads/"); // Store uploaded files in the 'uploads' folder
-    },
-    filename: function (req, file, cb) {
-      cb(null, file.originalname); // Use the original file name
-    },
-  });
-  
-const upload = multer({ storage });
+// Load environment variables
+require("dotenv").config();
+
+// Create an instance of S3Client
+const s3Client = new S3Client({
+  region: process.env.AWS_REGION,
+  credentials: {
+    accessKeyId: process.env.AWS_ACCESS_KEY_ID,
+    secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY,
+  },
+});
 
 /* CREATE LISTING */
 router.post("/create", upload.array("listingPhotos"), async (req, res) => {
@@ -38,17 +42,15 @@ router.post("/create", upload.array("listingPhotos"), async (req, res) => {
       bindings,
       description,
     } = req.body;
-
     const listingPhotos = req.files;
+
     if (!listingPhotos) {
       return res.status(400).send("No file uploaded.");
     }
 
     for (const file of listingPhotos) {
       const fileExtension = file.originalname.split(".").pop().toLowerCase();
-
       if (fileExtension === "heic") {
-        // If HEIC image is detected, send response and return
         return res.status(400).json({
           message: "HEIC images are not supported. Please upload images in JPEG, PNG, WebP, or AVIF format.",
         });
@@ -56,20 +58,28 @@ router.post("/create", upload.array("listingPhotos"), async (req, res) => {
     }
 
     const listingPhotoPaths = [];
-
     for (const file of listingPhotos) {
-      const resizedImagePath = `public/uploads/resized-${file.filename}`;
+      const fileExtension = path.extname(file.originalname);
+      const uniqueFileName = `${uuidv4()}${fileExtension}`;
+
+      const uploadParams = {
+        Bucket: process.env.AWS_BUCKET_NAME,
+        Key: `listing-photos/${creator}/${category}/${uniqueFileName}`,
+        Body: file.buffer,
+        ContentType: file.mimetype,
+      };
 
       try {
-        await sharp(file.path)
-          .resize({ width: 300, height: 270, fit: "cover" })
-          .toFile(resizedImagePath);
+        const upload = new Upload({
+          client: s3Client,
+          params: uploadParams,
+        });
+        const response = await upload.done();
+        listingPhotoPaths.push(response.Location);
       } catch (error) {
-        console.error(`Error processing image:`, error);
+        console.error(`Error uploading image to S3:`, error);
         continue; // Skip this image and move to the next one
       }
-
-      listingPhotoPaths.push(resizedImagePath);
     }
 
     const title = `${gender} ${brand} ${category}, ${size} cm`;
