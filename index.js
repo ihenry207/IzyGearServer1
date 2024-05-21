@@ -10,7 +10,6 @@ const listingBikingRoutes = require("./routes/biking.js");
 const listingCampingRoutes = require("./routes/camping.js");
 const bookingRoutes = require("./routes/Booking.js")
 const userRoutes = require("./routes/user.js")
-
 // Configure CORS options
 const corsOptions = {
     origin: ["http://localhost:3000", "http://10.1.82.120:3000", "http://10.1.82.42:3000",
@@ -18,12 +17,9 @@ const corsOptions = {
     methods: ["GET", "POST", "PUT", "PATCH", "DELETE"],
     allowedHeaders: ["Content-Type", "Authorization"],
   };
-
 app.use(cors(corsOptions))
 app.use(express.json())
 app.use(express.static('public'))
-
-
 //routes
 app.use("/auth", authRoutes);
 app.use("/gears/skisnow", listingSkiSnowRoutes);

@@ -118,11 +118,17 @@ router.post("/create", upload.array("listingPhotos"), async (req, res) => {
   }
 });
   /* GET lISTINGS BY CATEGORY */
-  //
   router.get("/", async (req, res) => {
     const qCategory = req.query.category;
+    //console.log("Here is qcat: ",qCategory)
+    if (qCategory === "skiing"){
+      qCategory = "Ski"
+    }else if (qCategory === "snowboarding"){
+      qCategory = "Snowboard"
+    }
     try {
       let listings;
+      
       if (qCategory === "Ski" || qCategory === "Snowboard") {
         listings = await Listing.find({ category: qCategory }).populate("creator");
       } else {
