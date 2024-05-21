@@ -62,11 +62,15 @@ router.post("/create", upload.array("listingPhotos"), async (req, res) => {
     for (const file of listingPhotos) {
       const fileExtension = path.extname(file.originalname);
       const uniqueFileName = `${uuidv4()}${fileExtension}`;
+      // Resize the image
+      const resizedImageBuffer = await sharp(file.buffer)
+        .resize({ width: 300, height: 270, fit: "cover" })
+        .toBuffer();
 
       const uploadParams = {
         Bucket: process.env.AWS_BUCKET_NAME,
         Key: `biking-photos/${creator}/${category}/${uniqueFileName}`,
-        Body: file.buffer,
+        Body: resizedImageBuffer,
         ContentType: file.mimetype,
       };
 
