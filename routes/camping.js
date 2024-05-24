@@ -8,6 +8,8 @@ const ListingCamping = require("../models/ListingCamping");
 const User = require("../models/User");
 const { v4: uuidv4 } = require('uuid');
 const path = require('path');
+const { Client } = require('@googlemaps/google-maps-services-js');
+const googleMapsClient = new Client({});
 
 // Load environment variables
 require("dotenv").config();
@@ -33,12 +35,7 @@ router.post("/create", upload.array("listingPhotos"), async (req, res) => {
       gender,
       size,
       price,
-      streetAddress,
-      aptSuite,
-      city,
-      state,
-      country,
-      zip,
+      address,
       condition,
       description,
     } = req.body;
@@ -63,14 +60,14 @@ router.post("/create", upload.array("listingPhotos"), async (req, res) => {
       const uniqueFileName = `${uuidv4()}${fileExtension}`;
 
       // Resize the image
-      const resizedImageBuffer = await sharp(file.buffer)
-        .resize({ width: 300, height: 270, fit: "cover" })
-        .toBuffer();
-        
+      // const resizedImageBuffer = await sharp(file.buffer)
+      //   .resize({ width: 300, height: 270, fit: "cover" })
+      //   .toBuffer();
+
       const uploadParams = {
         Bucket: process.env.AWS_BUCKET_NAME,
         Key: `camping-photos/${creator}/${category}/${subcategory}/${uniqueFileName}`,
-        Body: resizedImageBuffer,
+        Body: file.buffer,
         ContentType: file.mimetype,
       };
 
@@ -89,6 +86,16 @@ router.post("/create", upload.array("listingPhotos"), async (req, res) => {
 
     const title = `${brand} ${name}`;
 
+    // Geocode the address using Google Maps API
+    const response = await googleMapsClient.geocode({
+      params: {
+        address,
+        key: process.env.GOOGLE_MAPS_API_KEY,
+      },
+    });
+
+    const { lat, lng } = response.data.results[0].geometry.location;
+
     const newListing = new ListingCamping({
       creator,
       category,
@@ -98,12 +105,11 @@ router.post("/create", upload.array("listingPhotos"), async (req, res) => {
       gender,
       size,
       price,
-      streetAddress,
-      aptSuite,
-      city,
-      state,
-      country,
-      zip,
+      address,
+      location: {
+        type: 'Point',
+        coordinates: [lng, lat],
+      },
       condition,
       description,
       listingPhotoPaths,
@@ -117,16 +123,60 @@ router.post("/create", upload.array("listingPhotos"), async (req, res) => {
     console.log(err);
   }
 });
+
 /* GET LISTINGS BY CATEGORY */
 router.get("/", async (req, res) => {
-  const qCategory = req.query.category;
+  const { location, distance, category, subcategory, brand, gender, size, condition, price } = req.query;
+  console.log("Received query parameters camping:", req.query);
+
   try {
-    let listings;
-    if (qCategory) {
-      listings = await ListingCamping.find({ category: qCategory }).populate("creator");
-    } else {
-      listings = await ListingCamping.find().populate("creator");
+    const filterConditions = {};
+
+    if (category) filterConditions.category = category;
+    if (subcategory) filterConditions.subcategory = subcategory;
+    if (brand) filterConditions.brand = brand;
+    if (gender) filterConditions.gender = gender;
+    if (size) filterConditions.size = size;
+    if (condition) filterConditions.condition = condition;
+
+    // Handle price range
+    if (price) {
+      if (price === "100+") {
+        filterConditions.price = { $gte: 100 };
+      } else {
+        const [minPrice, maxPrice] = price.split("-");
+        filterConditions.price = { $gte: parseInt(minPrice), $lte: parseInt(maxPrice) };
+      }
     }
+    if(location){
+        // Convert location to latitude and longitude using Google Maps Geocoding API
+        const response = await googleMapsClient.geocode({
+          params: {
+            address: location,
+            key: process.env.GOOGLE_MAPS_API_KEY,
+          },
+        });
+
+        const { lat, lng } = response.data.results[0].geometry.location;
+
+        // Convert distance to meters
+        const distanceInMeters = distance * 1609.34; // 1 mile = 1609.34 meters
+
+        // Create a MongoDB query to filter listings based on location and distance
+        filterConditions.location = {
+          $near: {
+            $geometry: {
+              type: 'Point',
+              coordinates: [lng, lat],
+            },
+            $maxDistance: distanceInMeters,
+          },
+        };
+        
+    }
+    
+
+    const listings = await ListingCamping.find(filterConditions).populate("creator");
     res.status(200).json(listings);
   } catch (err) {
     res.status(404).json({ message: "Fail to fetch listings", error: err.message });

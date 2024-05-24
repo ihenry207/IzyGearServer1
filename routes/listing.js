@@ -8,6 +8,8 @@ const Listing = require("../models/ListingSkiSnow");
 const User = require("../models/User");
 const { v4: uuidv4 } = require('uuid');
 const path = require('path');
+const { Client } = require('@googlemaps/google-maps-services-js');
+const googleMapsClient = new Client({});
 
 // Load environment variables
 require("dotenv").config();
@@ -25,28 +27,24 @@ const s3Client = new S3Client({
 router.post("/create", upload.array("listingPhotos"), async (req, res) => {
   try {
     const {
-      creator,
+      creator, 
       category,
-      brand,
+      brand, 
       gender,
       size,
       price,
-      streetAddress,
-      aptSuite,
-      city,
-      state,
-      country,
-      zip,
+      address,
       condition,
       boots,
       bindings,
       description,
     } = req.body;
     const listingPhotos = req.files;
+    //console.log("here is what front end sent: ", req.files)
 
     if (!listingPhotos) {
       return res.status(400).send("No file uploaded.");
-    }
+    } 
 
     for (const file of listingPhotos) {
       const fileExtension = file.originalname.split(".").pop().toLowerCase();
@@ -63,14 +61,14 @@ router.post("/create", upload.array("listingPhotos"), async (req, res) => {
       const uniqueFileName = `${uuidv4()}${fileExtension}`;
 
       // Resize the image
-      const resizedImageBuffer = await sharp(file.buffer)
-        .resize({ width: 300, height: 270, fit: "cover" })
-        .toBuffer();
+      // const resizedImageBuffer = await sharp(file.buffer)
+      //   .resize({ width: 300, height: 270, fit: "cover" })
+      //   .toBuffer();
 
       const uploadParams = {
         Bucket: process.env.AWS_BUCKET_NAME,
         Key: `listing-photos/${creator}/${category}/${uniqueFileName}`,
-        Body: resizedImageBuffer,
+        Body: file.buffer,
         ContentType: file.mimetype,
       };
 
@@ -89,6 +87,16 @@ router.post("/create", upload.array("listingPhotos"), async (req, res) => {
 
     const title = `${gender} ${brand} ${category}, ${size} cm`;
 
+    // Geocode the address using Google Maps API
+    const response = await googleMapsClient.geocode({
+      params: {
+        address: address,
+        key: process.env.GOOGLE_MAPS_API_KEY,
+      },
+    });
+
+    const { lat, lng } = response.data.results[0].geometry.location;
+
     const newListing = new Listing({
       creator,
       category,
@@ -96,12 +104,11 @@ router.post("/create", upload.array("listingPhotos"), async (req, res) => {
       gender,
       size,
       price,
-      streetAddress,
-      aptSuite,
-      city,
-      state,
-      country,
-      zip,
+      address,
+      location: {
+        type: 'Point',
+        coordinates: [lng, lat],
+      },
       condition,
       boots,
       bindings,
@@ -117,32 +124,74 @@ router.post("/create", upload.array("listingPhotos"), async (req, res) => {
     console.log(err);
   }
 });
-  /* GET lISTINGS BY CATEGORY */
-  router.get("/", async (req, res) => {
-    const qCategory = req.query.category;
-    //console.log("Here is qcat: ",qCategory)
-    if (qCategory === "skiing"){
-      qCategory = "Ski"
-    }else if (qCategory === "snowboarding"){
-      qCategory = "Snowboard"
-    }
-    try {
-      let listings;
-      
-      if (qCategory === "Ski" || qCategory === "Snowboard") {
-        listings = await Listing.find({ category: qCategory }).populate("creator");
-      } else {
-        listings = await Listing.find().populate("creator");
-      }
-      res.status(200).json(listings);
-    } catch (err) {
-      res.status(404).json({ message: "Fail to fetch listings", error: err.message });
-      console.log(err);
-    }
-  });
 
-  //will probably have another one of get listing by location. by first having user,
-  //ask them for where their trip is and location they want search their skiis from.
+/* GET LISTINGS BY CATEGORY */
+router.get("/", async (req, res) => {
+  const { location, distance, category, brand, gender, size, condition, price } = req.query;
+  console.log("Received query parameters skisnow:", req.query);
+
+  try {
+    const filterConditions = {};
+
+    if (category) filterConditions.category = category;
+    if (brand) filterConditions.brand = brand;
+    if (gender) filterConditions.gender = gender;
+    if (condition) filterConditions.condition = condition;
+
+    // Handle size range
+    if (size) {
+      if (size === "160+") {
+        filterConditions.size = { $gte: 160 };
+      } else {
+        const [minSize, maxSize] = size.split("-");
+        filterConditions.size = { $gte: parseInt(minSize), $lte: parseInt(maxSize) };
+      }
+    }
+
+    // Handle price range
+    if (price) {
+      if (price === "100+") {
+        filterConditions.price = { $gte: 100 };
+      } else {
+        const [minPrice, maxPrice] = price.split("-");
+        filterConditions.price = { $gte: parseInt(minPrice), $lte: parseInt(maxPrice) };
+      }
+    }
+    if(location){
+      // Convert location to latitude and longitude using Google Maps Geocoding API
+      const response = await googleMapsClient.geocode({
+        params: {
+          address: location,
+          key: process.env.GOOGLE_MAPS_API_KEY,
+        },
+      });
+
+      const { lat, lng } = response.data.results[0].geometry.location;
+
+      // Convert distance to meters
+      const distanceInMeters = distance * 1609.34; // 1 mile = 1609.34 meters
+
+      // Create a MongoDB query to filter listings based on location and distance
+      filterConditions.location = {
+        $near: {
+          $geometry: {
+            type: 'Point',
+            coordinates: [lng, lat],
+          },
+          $maxDistance: distanceInMeters,
+        },
+      };
+    }
+
+    
+
+    const listings = await Listing.find(filterConditions).populate("creator");
+    res.status(200).json(listings);
+  } catch (err) {
+    res.status(404).json({ message: "Fail to fetch listings", error: err.message });
+    console.log(err);
+  }
+});
 
   /* LISTING DETAILS */
 router.get("/:listingId", async (req, res) => {

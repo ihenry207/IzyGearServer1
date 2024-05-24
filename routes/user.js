@@ -14,7 +14,7 @@ router.get("/:userId/gears", async (req, res) => {
     const bookings = await Booking.aggregate([
       { $match: { customerId: new mongoose.Types.ObjectId(userId) } },
       {
-        $lookup: {
+        $lookup: {  
           from: "listingbikings",
           localField: "listingId",
           foreignField: "_id",
