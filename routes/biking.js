@@ -149,19 +149,22 @@ router.get("/", async (req, res) => {
       }
     }
 
-    if(location){
+    if (location && distance !== "60+" && distance !== "") {
+      // Convert location to latitude and longitude using Google Maps Geocoding API
       const response = await googleMapsClient.geocode({
         params: {
           address: location,
           key: process.env.GOOGLE_MAPS_API_KEY,
         },
       });
-  
       const { lat, lng } = response.data.results[0].geometry.location;
-  
-      // Convert distance to meters
-      const distanceInMeters = distance * 1609.34; // 1 mile = 1609.34 meters
-  
+    
+      // Extract the maximum distance from the distance range
+      const maxDistance = parseInt(distance.split("-")[1]);
+    
+      // Convert maximum distance to meters
+      const maxDistanceInMeters = maxDistance * 1609.34; // 1 mile = 1609.34 meters
+    
       // Create a MongoDB query to filter listings based on location and distance
       filterConditions.location = {
         $near: {
@@ -169,7 +172,7 @@ router.get("/", async (req, res) => {
             type: 'Point',
             coordinates: [lng, lat],
           },
-          $maxDistance: distanceInMeters,
+          $maxDistance: maxDistanceInMeters,
         },
       };
     }
