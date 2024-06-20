@@ -8,11 +8,12 @@ const ListingSkiSnow = require("../models/ListingSkiSnow");
 /* CREATE reservation */
 router.post("/create", async (req, res) => {
   try {
-    const { customerId, hostId, listingId, startDate, endDate, totalPrice, category } = req.body;
+    const { customerId, hostId, listingId, startDate, endDate, totalPrice, category,
+        creatorFirebaseUid, customerFirebaseUid } = req.body;
     console.log("Reservation form: ", req.body);
 
     // Input validation
-    if (!customerId || !hostId || !listingId || !startDate || !endDate || !totalPrice) {
+    if (!customerId || !hostId || !listingId || !startDate || !endDate || !totalPrice || !category || !creatorFirebaseUid || !customerFirebaseUid) {
       return res.status(400).json({ message: "Missing required fields!" });
     }
 
@@ -36,6 +37,9 @@ router.post("/create", async (req, res) => {
       endDate,
       totalPrice,
       category,
+      creatorFirebaseUid,
+      customerFirebaseUid,
+      
     });
 
     await newReservation.save();

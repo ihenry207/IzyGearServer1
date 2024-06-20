@@ -38,6 +38,7 @@ router.post("/create", upload.array("listingPhotos"), async (req, res) => {
       address,
       condition,
       description,
+      creatorFirebaseUid,//firebaseUid of customer
     } = req.body;
     const listingPhotos = req.files;
 
@@ -114,6 +115,7 @@ router.post("/create", upload.array("listingPhotos"), async (req, res) => {
       description,
       listingPhotoPaths,
       title,
+      creatorFirebaseUid,//firebaseUid of customer
     });
 
     await newListing.save();
