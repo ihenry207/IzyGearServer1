@@ -129,4 +129,31 @@ router.post("/login", async (req, res) => {
   }
 });
 
+router.post("/firebase", async (req, res) =>{
+  try {
+    const { firebaseUid, userId } = req.body;
+
+    // Find the user by their userId
+    const user = await User.findById(userId);
+
+    if (!user) {
+      return res.status(404).json({ error: "User not found" });
+    }
+
+    // Check if the firebaseUid field is null
+    if (user.firebaseUid === "" || user.firebaseUid === undefined || user.firebaseUid === null) {
+      // Update the user's firebaseUid field
+      user.firebaseUid = firebaseUid;
+      await user.save();
+
+      res.status(200).json({ message: "Firebase UID stored successfully" });
+    } else {
+      res.status(200).json({ message: "Firebase UID already exists" });
+    }
+  } catch (err) {
+    console.log(err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
 module.exports = router;

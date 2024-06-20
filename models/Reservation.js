@@ -30,6 +30,14 @@ const ReservationSchema = new mongoose.Schema(
         type: String,
         required: true,
       },
+      creatorFirebaseUid: {//for connecting with clients through chat
+        type: String,
+        default: "",
+      },
+      customerFirebaseUid: {
+        type: String,
+        default: "",
+      },
     },
     { timestamps: true }
   );
