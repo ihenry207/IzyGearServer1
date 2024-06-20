@@ -1,13 +1,12 @@
 const mongoose = require("mongoose");
-
 const ListingSnowSkiSchema = new mongoose.Schema(
   {
     creator: {
       type: mongoose.Schema.Types.ObjectId,
       ref: 'User',
+      required: true,
     },
     category: {
-      // this can be snowboard, ski, camping, biking
       type: String,
       required: true,
     },
@@ -67,15 +66,19 @@ const ListingSnowSkiSchema = new mongoose.Schema(
       type: String,
       required: true,
     },
+    BookedDates: {
+      type: Array,
+      default: [],
+    },
+    creatorFirebaseUid: {
+      type: String,
+      default: "",
+    },
   },
   {
     timestamps: true,
   }
 );
-
-// Create a geospatial index on the location field
 ListingSnowSkiSchema.index({ location: '2dsphere' });
-
 const ListingSkiSnow = mongoose.model("ListingSkiSnow", ListingSnowSkiSchema);
-
 module.exports = ListingSkiSnow;

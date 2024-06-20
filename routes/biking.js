@@ -115,10 +115,16 @@ router.post("/create", upload.array("listingPhotos"), async (req, res) => {
       title,
       type,
       kind,
-    });
+    }); 
 
     await newListing.save();
-    res.status(200).json(newListing);
+
+     // Update the user's OwnerGearList
+    await User.findByIdAndUpdate(creator, {
+      $push: { OwnerGearList: newListing },
+    });
+
+    res.status(201).json(newListing);
   } catch (err) {
     res.status(409).json({ message: "Fail to create Listing", error: err.message });
     console.log(err);

@@ -27,9 +27,9 @@ const s3Client = new S3Client({
 router.post("/create", upload.array("listingPhotos"), async (req, res) => {
   try {
     const {
-      creator, 
+      creator,
       category,
-      brand, 
+      brand,
       gender,
       size,
       price,
@@ -40,11 +40,10 @@ router.post("/create", upload.array("listingPhotos"), async (req, res) => {
       description,
     } = req.body;
     const listingPhotos = req.files;
-    //console.log("here is what front end sent: ", req.files)
 
     if (!listingPhotos) {
       return res.status(400).send("No file uploaded.");
-    } 
+    }
 
     for (const file of listingPhotos) {
       const fileExtension = file.originalname.split(".").pop().toLowerCase();
@@ -59,11 +58,6 @@ router.post("/create", upload.array("listingPhotos"), async (req, res) => {
     for (const file of listingPhotos) {
       const fileExtension = path.extname(file.originalname);
       const uniqueFileName = `${uuidv4()}${fileExtension}`;
-
-      // Resize the image
-      // const resizedImageBuffer = await sharp(file.buffer)
-      //   .resize({ width: 300, height: 270, fit: "cover" })
-      //   .toBuffer();
 
       const uploadParams = {
         Bucket: process.env.AWS_BUCKET_NAME,
@@ -87,7 +81,6 @@ router.post("/create", upload.array("listingPhotos"), async (req, res) => {
 
     const title = `${gender} ${brand} ${category}, ${size} cm`;
 
-    // Geocode the address using Google Maps API
     const response = await googleMapsClient.geocode({
       params: {
         address: address,
@@ -118,12 +111,18 @@ router.post("/create", upload.array("listingPhotos"), async (req, res) => {
     });
 
     await newListing.save();
-    res.status(200).json(newListing);
-  } catch (err) {
-    res.status(409).json({ message: "Fail to create Listing", error: err.message });
-    console.log(err);
+
+    // Update the user's OwnerGearList
+    await User.findByIdAndUpdate(creator, {
+      $push: { OwnerGearList: newListing },
+    });
+
+    res.status(201).json(newListing);
+  } catch (error) {
+    res.status(409).json({ message: error.message });
   }
 });
+
 
 /* GET LISTINGS BY CATEGORY */
 router.get("/", async (req, res) => {

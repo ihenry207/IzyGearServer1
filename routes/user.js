@@ -7,63 +7,51 @@ const ListingCamping = require("../models/ListingCamping");
 const ListingSkiSnow = require("../models/ListingSkiSnow");
 
 
-/* GET Gear LIST */
+/* GET Gear LIST, Booked Gear */
 router.get("/:userId/gears", async (req, res) => {
   try {
     const { userId } = req.params;
-    const bookings = await Booking.aggregate([
-      { $match: { customerId: new mongoose.Types.ObjectId(userId) } },
-      {
-        $lookup: {  
-          from: "listingbikings",
-          localField: "listingId",
-          foreignField: "_id",
-          as: "listingBiking",
-        },
-      },
-      {
-        $lookup: {
-          from: "listingcampings",
-          localField: "listingId",
-          foreignField: "_id",
-          as: "listingCamping",
-        },
-      },
-      {
-        $lookup: {
-          from: "listingskisnows",
-          localField: "listingId",
-          foreignField: "_id",
-          as: "listingSkiSnow",
-        },
-      },
-      {
-        $project: {
-          _id: 1,
-          customerId: 1,
-          hostId: 1,
-          listingId: 1,
-          startDate: 1,
-          endDate: 1,
-          totalPrice: 1,
-          listing: {
-            $cond: [
-              { $gt: [{ $size: "$listingBiking" }, 0] },
-              { $arrayElemAt: ["$listingBiking", 0] },
-              {
-                $cond: [
-                  { $gt: [{ $size: "$listingCamping" }, 0] },
-                  { $arrayElemAt: ["$listingCamping", 0] },
-                  { $arrayElemAt: ["$listingSkiSnow", 0] },
-                ],
-              },
-            ],
-          },
-        },
-      },
-    ]);
+    console.log("Booking Infos: ", userId)
+    
+    // Find all bookings with the matching customerId
+    const bookings = await Booking.find({ customerId: userId });
+    console.log("current Bookings", bookings)
 
-    res.status(200).json(bookings);
+    // Array to store the retrieved listings
+    const listingsWithDetails = [];
+
+    // Iterate over each booking
+    for (const booking of bookings) {
+      const { listingId, category, startDate, endDate } = booking;
+
+      let listing;
+
+      // Find the corresponding listing based on the category
+      switch (category) {
+        case "Biking":
+          listing = await ListingBiking.findById(listingId).populate("creator");
+          break;
+        case "Camping":
+          listing = await ListingCamping.findById(listingId).populate("creator");
+          break;
+        case "Snowboard":
+        case "Ski":
+          listing = await ListingSkiSnow.findById(listingId).populate("creator");
+          break;
+        default:
+          continue;
+      }
+
+      // Add the retrieved listing along with start and end dates to the array
+      listingsWithDetails.push({
+        listing,
+        startDate,
+        endDate,
+      });
+    }
+    console.log("Listings with Details: ",listingsWithDetails)
+
+    res.status(200).json(listingsWithDetails);
   } catch (err) {
     console.log(err);
     res.status(404).json({ message: "Can not find gear list!", error: err.message });
@@ -71,89 +59,109 @@ router.get("/:userId/gears", async (req, res) => {
 });
 
 /* ADD LISTING TO WISHLIST */
-router.patch("/:userId/:listingType/:listingId", async (req, res) => {
+router.patch("/:userId/:category/:listingId", async (req, res) => {
   try {
-    //console.log("Recieved wishing list request")
-    const { userId, listingType, listingId } = req.params;
+    console.log("Received wishlist request: ", req.params);
+    const { userId, category, listingId } = req.params;
     const user = await User.findById(userId);
+    let listing = req.body.listing;
 
-    let listing;
-    switch (listingType) {
-      case "Biking":
-        listing = await ListingBiking.findById(listingId).populate("creator");
-        break;
-      case "Camping":
-        listing = await ListingCamping.findById(listingId).populate("creator");
-        break;
-      case "Snowboard":
-        listing = await ListingSkiSnow.findById(listingId).populate("creator");
-        break;
-      case "Ski":
-        listing = await ListingSkiSnow.findById(listingId).populate("creator");
-        break;
-      default:
-        return res.status(400).json({ error: "Invalid listing type" });
+    if (!listing) {
+      // Fetch listing based on category and listingId
+      switch (category) {
+        case "Biking":
+          listing = await ListingBiking.findById(listingId).populate("creator");
+          break;
+        case "Camping":
+          listing = await ListingCamping.findById(listingId).populate("creator");
+          break;
+        case "Snowboard":
+          listing = await ListingSkiSnow.findById(listingId).populate("creator");
+          break;
+        case "Ski":
+          listing = await ListingSkiSnow.findById(listingId).populate("creator");
+          break;
+        default:
+          return res.status(400).json({ error: "Invalid category" });
+      }
     }
 
-    const favoriteListing = user.wishList.find(
-      (item) => item.listingId.toString() === listingId && item.listingType === listingType
+    const favoriteListingIndex = user.wishList.findIndex(
+      (item) => item._id.toString() === listingId && item.category === category
     );
-
-    if (favoriteListing) {
-      user.wishList = user.wishList.filter(
-        (item) => item.listingId.toString() !== listingId || item.listingType !== listingType
-      );
+    /*If the favoriteListingIndex is not equal to -1 (meaning the listing is 
+      found in the wishList), it proceeds to remove the listing from the wishList */
+    if (favoriteListingIndex !== -1) {
+      user.wishList.splice(favoriteListingIndex, 1);
       await user.save();
-      res.status(200).json({ message: "Listing is removed from wish list", wishList: user.wishList });
-    } else {
-      user.wishList.push({ listingId: listing._id, listingType });
+      return res.status(200).json({ message: "Listing removed from wishlist", wishList: user.wishList });
+    } 
+    else {//else the opposite
+      user.wishList.push(listing);
       await user.save();
-      res.status(200).json({ message: "Listing is added to wish list", wishList: user.wishList });
+      return res.status(200).json({ message: "Listing added to wishlist", wishList: user.wishList });
     }
   } catch (err) {
     console.log(err);
-    res.status(404).json({ error: err.message });
+    return res.status(404).json({ error: err.message });
   }
 });
 
-//get items inside the wishList
-router.get("/listings/:listingType/:listingId", async (req, res) => {
+// Get items inside the wishList
+router.get("/:userId/wishlist", async (req, res) => {
   try {
-    const { listingType, listingId } = req.params;
-    let listing;
-
-    switch (listingType) {
-      case "Biking":
-        listing = await ListingBiking.findById(listingId).populate("creator");
-        break;
-      case "Camping":
-        listing = await ListingCamping.findById(listingId).populate("creator");
-        break;
-      case "Snowboard":
-        listing = await ListingSkiSnow.findById(listingId).populate("creator");
-        break;
-      case "Ski":
-        listing = await ListingSkiSnow.findById(listingId).populate("creator");
-        break;
-      default:
-        return res.status(400).json({ error: "Invalid listing type" });
+    const { userId } = req.params;
+    // Find the user by userId
+    const user = await User.findById(userId);
+    if (!user) {
+      return res.status(404).json({ error: "User not found" });
     }
 
-    if (!listing) {
-      return res.status(404).json({ error: "Listing not found" });
+    const wishListItems = user.wishList;
+    if (wishListItems.length === 0) {
+      return res.status(200).json({ message: "Wishlist is empty" });
     }
 
-    res.status(200).json(listing);
+    const listings = [];
+
+    for (const item of wishListItems) {
+      const { listingId, listingType } = item;
+      let listing;
+
+      switch (listingType) {
+        case "Biking":
+          listing = await ListingBiking.findById(listingId).populate("creator");
+          break;
+        case "Camping":
+          listing = await ListingCamping.findById(listingId).populate("creator");
+          break;
+        case "Snowboard":
+          listing = await ListingSkiSnow.findById(listingId).populate("creator");
+          break;
+        case "Ski":
+          listing = await ListingSkiSnow.findById(listingId).populate("creator");
+          break;
+        default:
+          continue;
+      }
+
+      if (listing) {
+        listings.push(listing);
+      }
+    }
+
+    res.status(200).json(listings);
   } catch (err) {
     console.log(err);
     res.status(500).json({ error: "Server error" });
   }
-});
+}); 
 
 
-/* GET GEAR, ones you own LIST */
-router.get("/:userId/listings", async (req, res) => {
+/* GET GEAR, ones you own LIST, easy way fo doing it is by searching user and OwnerGearList */
+router.get("/:userId/ownerGear", async (req, res) => {
     try {
+      //we will search Users and get the user with that userID
       const { userId } = req.params;
       const bikingListings = await ListingBiking.find({ creator: userId }).populate("creator");
       const campingListings = await ListingCamping.find({ creator: userId }).populate("creator");

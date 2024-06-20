@@ -10,6 +10,7 @@ const listingBikingRoutes = require("./routes/biking.js");
 const listingCampingRoutes = require("./routes/camping.js");
 const bookingRoutes = require("./routes/Booking.js")
 const userRoutes = require("./routes/user.js")
+const reservationRoutes = require("./routes/Reservation.js")
 // Configure CORS options
 const corsOptions = {
     origin: ["http://localhost:3000", "http://10.1.82.120:3000", "http://10.1.82.42:3000",
@@ -25,14 +26,13 @@ app.use("/auth", authRoutes);
 app.use("/gears/skisnow", listingSkiSnowRoutes);
 app.use("/gears/biking", listingBikingRoutes);
 app.use("/gears/camping", listingCampingRoutes);
-app.use("/bookings", bookingRoutes)
-app.use("/users", userRoutes)
+app.use("/bookings", bookingRoutes);
+app.use("/users", userRoutes);
+app.use("/reservations", reservationRoutes);
 //Mongoose setup
 const PORT = 3001
 mongoose.connect(process.env.MONGO_URL, {
     dbName: "IzyGear",
-    useNewUrlParser:true,
-    useUnifiedTopology:true
 })
 .then(()=>{
     app.listen(PORT, () => console.log(`Server Port: ${PORT}`));

@@ -93,24 +93,36 @@ router.post("/register", upload.single('profileImage'), async (req, res) => {
 router.post("/login", async (req, res) => {
   try {
     const { email, password } = req.body;
-
+    
     // Check if user exists
     const user = await User.findOne({ email });
     if (!user) {
       return res.status(409).json({ message: "User doesn't exist!" });
     }
-
+    
     // Compare the password with the hashed password
     const isMatch = await bcrypt.compare(password, user.password);
     if (!isMatch) {
       return res.status(400).json({ message: "Invalid Credentials!" });
     }
-
+    
     // Generate JWT token
     const token = jwt.sign({ id: user._id }, process.env.JWT_SECRET);
-
-    delete user.password;
-    res.status(200).json({ token, user });
+    
+    // Create an object with the desired user information
+    const userInfo = {
+      userId: user._id,
+      firstName: user.firstName,
+      lastName: user.lastName,
+      email: user.email,
+      profileImagePath: user.profileImagePath,
+      gearList: user.GearList,
+      wishList: user.wishList,
+      ownerGearList: user.OwnerGearList,
+      reservationList: user.reservationList,
+    };
+    
+    res.status(200).json({ token, user: userInfo });
   } catch (err) {
     console.log(err);
     res.status(500).json({ error: err.message });

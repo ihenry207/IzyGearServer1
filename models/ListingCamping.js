@@ -66,6 +66,14 @@ const ListingCampingSchema = new mongoose.Schema(
       type: String,
       required: true,
     },
+    BookedDates: {
+      type: Array,
+      default: [],
+    },
+    creatorFirebaseUid: {
+      type: String,
+      default: "",
+    },
   },
   {
     timestamps: true,

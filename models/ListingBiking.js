@@ -69,6 +69,14 @@ const ListingBikingSchema = new mongoose.Schema(
       enum: ["electric", "non-electric"],
       required: true,
     },
+    BookedDates: {
+      type: Array,
+      default: [],
+    },
+    creatorFirebaseUid: {
+      type: String,
+      default: "",
+    },
   },
   {
     timestamps: true,
