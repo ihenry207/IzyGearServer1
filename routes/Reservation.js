@@ -19,8 +19,8 @@ router.post("/create", async (req, res) => {
     }
 
     // Validate date format and ensure startDate is not after endDate
-    const startDateObj = moment(startDate, "ddd MMM DD YYYY hh:mm A");
-    const endDateObj = moment(endDate, "ddd MMM DD YYYY hh:mm A");
+    const startDateObj = moment(startDate);
+    const endDateObj = moment(endDate);
     if (!startDateObj.isValid() || !endDateObj.isValid() || startDateObj.isAfter(endDateObj)) {
       return res.status(400).json({ message: "Invalid date range!" });
     }

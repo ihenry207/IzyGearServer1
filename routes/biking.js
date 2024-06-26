@@ -136,7 +136,8 @@ router.post("/create", upload.array("listingPhotos"), async (req, res) => {
 /* GET lISTINGS BY CATEGORY */
 router.get("/", async (req, res) => {
   //we will also add dates 
-  const { location, distance, category, brand, gender, size, condition, price } = req.query;
+  const { location, distance, category, brand, gender, size, condition, 
+    price, startDate, endDate } = req.query;
   console.log("Received query parameters biking:", req.query);
 
   try {
@@ -186,8 +187,20 @@ router.get("/", async (req, res) => {
       };
     }
 
-    // Convert location to latitude and longitude using Google Maps Geocoding API
-
+    // Handle date range filtering
+    if (startDate && endDate) {
+      filterConditions.BookedDates = {
+        $not: {
+          $elemMatch: {
+            $or: [
+              { start: { $lte: new Date(endDate) }, end: { $gte: new Date(startDate) } },
+              { start: { $gte: new Date(startDate), $lte: new Date(endDate) } },
+              { end: { $gte: new Date(startDate), $lte: new Date(endDate) } }
+            ]
+          }
+        }
+      };
+    }
 
     const listings = await ListingBiking.find(filterConditions).populate("creator");
     res.status(200).json(listings);

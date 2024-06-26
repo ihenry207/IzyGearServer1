@@ -134,7 +134,8 @@ router.post("/create", upload.array("listingPhotos"), async (req, res) => {
 
 /* GET LISTINGS BY CATEGORY */
 router.get("/", async (req, res) => {
-  const { location, distance, category, subcategory, brand, gender, size, condition, price } = req.query;
+  const { location, distance, category, subcategory, brand, gender, size, 
+    condition, price, startDate, endDate } = req.query;
   console.log("Received query parameters camping:", req.query);
 
   try {
@@ -156,8 +157,9 @@ router.get("/", async (req, res) => {
         filterConditions.price = { $gte: parseInt(minPrice), $lte: parseInt(maxPrice) };
       }
     }
+
+    // Handle location and distance
     if (location && distance !== "60+" && distance !== "") {
-      // Convert location to latitude and longitude using Google Maps Geocoding API
       const response = await googleMapsClient.geocode({
         params: {
           address: location,
@@ -166,13 +168,9 @@ router.get("/", async (req, res) => {
       });
       const { lat, lng } = response.data.results[0].geometry.location;
     
-      // Extract the maximum distance from the distance range
       const maxDistance = parseInt(distance.split("-")[1]);
+      const maxDistanceInMeters = maxDistance * 1609.34;
     
-      // Convert maximum distance to meters
-      const maxDistanceInMeters = maxDistance * 1609.34; // 1 mile = 1609.34 meters
-    
-      // Create a MongoDB query to filter listings based on location and distance
       filterConditions.location = {
         $near: {
           $geometry: {
@@ -183,7 +181,21 @@ router.get("/", async (req, res) => {
         },
       };
     }
-    
+
+    // Handle date range filtering
+    if (startDate && endDate) {
+      filterConditions.BookedDates = {
+        $not: {
+          $elemMatch: {
+            $or: [
+              { start: { $lte: new Date(endDate) }, end: { $gte: new Date(startDate) } },
+              { start: { $gte: new Date(startDate), $lte: new Date(endDate) } },
+              { end: { $gte: new Date(startDate), $lte: new Date(endDate) } }
+            ]
+          }
+        }
+      };
+    }
 
     const listings = await ListingCamping.find(filterConditions).populate("creator");
     res.status(200).json(listings);

@@ -128,7 +128,8 @@ router.post("/create", upload.array("listingPhotos"), async (req, res) => {
 
 /* GET LISTINGS BY CATEGORY */
 router.get("/", async (req, res) => {
-  const { location, distance, category, brand, gender, size, condition, price } = req.query;
+  const { location, distance, category, brand, gender, size, 
+    condition, price, startDate, endDate } = req.query;
   console.log("Received query parameters skisnow:", req.query);
 
   try {
@@ -186,7 +187,20 @@ router.get("/", async (req, res) => {
       };
     }
 
-    
+    // Handle date range filtering
+    if (startDate && endDate) {
+      filterConditions.BookedDates = {
+        $not: {
+          $elemMatch: {
+            $or: [
+              { start: { $lte: new Date(endDate) }, end: { $gte: new Date(startDate) } },
+              { start: { $gte: new Date(startDate), $lte: new Date(endDate) } },
+              { end: { $gte: new Date(startDate), $lte: new Date(endDate) } }
+            ]
+          }
+        }
+      };
+    }
 
     const listings = await Listing.find(filterConditions).populate("creator");
     res.status(200).json(listings);
