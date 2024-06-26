@@ -135,6 +135,7 @@ router.post("/create", upload.array("listingPhotos"), async (req, res) => {
 
 /* GET lISTINGS BY CATEGORY */
 router.get("/", async (req, res) => {
+  //we will also add dates 
   const { location, distance, category, brand, gender, size, condition, price } = req.query;
   console.log("Received query parameters biking:", req.query);
 

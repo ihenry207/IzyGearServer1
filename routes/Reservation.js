@@ -4,6 +4,7 @@ const User = require("../models/User");
 const ListingBiking = require("../models/ListingBiking");
 const ListingCamping = require("../models/ListingCamping");
 const ListingSkiSnow = require("../models/ListingSkiSnow");
+const moment = require('moment'); // Add this line to use moment.js for date parsing
 
 /* CREATE reservation */
 router.post("/create", async (req, res) => {
@@ -18,9 +19,9 @@ router.post("/create", async (req, res) => {
     }
 
     // Validate date format and ensure startDate is not after endDate
-    const startDateObj = new Date(startDate);
-    const endDateObj = new Date(endDate);
-    if (isNaN(startDateObj.getTime()) || isNaN(endDateObj.getTime()) || startDateObj > endDateObj) {
+    const startDateObj = moment(startDate, "ddd MMM DD YYYY hh:mm A");
+    const endDateObj = moment(endDate, "ddd MMM DD YYYY hh:mm A");
+    if (!startDateObj.isValid() || !endDateObj.isValid() || startDateObj.isAfter(endDateObj)) {
       return res.status(400).json({ message: "Invalid date range!" });
     }
 
@@ -33,13 +34,12 @@ router.post("/create", async (req, res) => {
       customerId,
       listingId,
       hostId,
-      startDate,
-      endDate,
+      startDate: startDateObj.toDate(),
+      endDate: endDateObj.toDate(),
       totalPrice,
       category,
       creatorFirebaseUid,
       customerFirebaseUid,
-      
     });
 
     await newReservation.save();
@@ -48,8 +48,8 @@ router.post("/create", async (req, res) => {
     const reservationInfo = {
       reservationId: newReservation._id,
       listingId,
-      startDate,
-      endDate,
+      startDate: startDateObj.toDate(),
+      endDate: endDateObj.toDate(),
       totalPrice,
       category,
     };
@@ -76,7 +76,10 @@ router.post("/create", async (req, res) => {
         throw new Error("Invalid category!");
     }
 
-    const bookedDateRange = `${startDate}-${endDate}`;
+    const bookedDateRange = {
+      start: startDateObj.toDate(),
+      end: endDateObj.toDate()
+    };
     await ListingModel.findByIdAndUpdate(listingId, {
       $push: { BookedDates: bookedDateRange },
     });
@@ -143,4 +146,45 @@ router.get("/:userId/reservations", async (req, res) => {
     }
   });
 
+// Store the chatId of the reservation
+router.post("/chatId", async (req, res) => {
+  const { reservationId, chatId } = req.body;
+
+  try {
+    // Check if required fields are present
+    if (!reservationId || !chatId) {
+      return res.status(400).json({ message: "Missing required fields!" });
+    }
+    
+    // Update the reservation with the chatId
+    const updatedReservation = await Reservation.findByIdAndUpdate(
+      reservationId,
+      { firebaseChatId: chatId },
+      { new: true }
+    );
+
+    if (!updatedReservation) {
+      return res.status(404).json({ message: "Reservation not found" });
+    }
+
+    // // Update the user's reservationList with the new information
+    // await User.findByIdAndUpdate(
+    //   updatedReservation.customerId,
+    //   { 
+    //     $set: { 
+    //       "reservationList.$[elem].firebaseChatId": chatId 
+    //     }
+    //   },
+    //   { 
+    //     arrayFilters: [{ "elem.reservationId": reservationId }],
+    //     new: true
+    //   }
+    // );
+
+    res.status(200).json({ message: "ChatId added successfully", reservation: updatedReservation });
+  } catch (err) {
+    console.error("Error updating reservation with chatId:", err);
+    res.status(500).json({ message: "Server error", error: err.message });
+  }
+});
 module.exports = router;

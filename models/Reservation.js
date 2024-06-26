@@ -38,6 +38,10 @@ const ReservationSchema = new mongoose.Schema(
         type: String,
         default: "",
       },
+      firebaseChatId:{
+        type: String,
+        default: "",
+      },
     },
     { timestamps: true }
   );
