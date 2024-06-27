@@ -30,6 +30,42 @@ router.post("/create", async (req, res) => {
       return res.status(400).json({ message: "Total price must be a positive value!" });
     }
 
+    // Determine the correct Listing model based on the category
+    let ListingModel;
+    switch (category) {
+      case "Biking":
+        ListingModel = ListingBiking;
+        break;
+      case "Camping":
+        ListingModel = ListingCamping;
+        break;
+      case "Snowboard":
+      case "Ski":
+        ListingModel = ListingSkiSnow;
+        break;
+      default:
+        throw new Error("Invalid category!");
+    }
+
+    // Check if the dates are already booked
+    const listing = await ListingModel.findById(listingId);
+    if (!listing) {
+      return res.status(404).json({ message: "Listing not found!" });
+    }
+
+    const isBooked = listing.BookedDates.some(bookedRange => {
+      const bookedStart = moment(bookedRange.start);
+      const bookedEnd = moment(bookedRange.end);
+      return (startDateObj.isBetween(bookedStart, bookedEnd, null, '[]') ||
+              endDateObj.isBetween(bookedStart, bookedEnd, null, '[]') ||
+              (startDateObj.isSameOrBefore(bookedStart) && endDateObj.isSameOrAfter(bookedEnd)));
+    });
+
+    if (isBooked) {
+      return res.status(400).json({ message: "Selected dates are currently unavailable!" });
+    }
+
+    // If dates are available, proceed with creating the reservation
     const newReservation = new Reservation({
       customerId,
       listingId,
@@ -59,23 +95,6 @@ router.post("/create", async (req, res) => {
     });
 
     // Update the BookedDates array in the listing schema
-    let ListingModel;
-
-    switch (category) {
-      case "Biking":
-        ListingModel = ListingBiking;
-        break;
-      case "Camping":
-        ListingModel = ListingCamping;
-        break;
-      case "Snowboard":
-      case "Ski":
-        ListingModel = ListingSkiSnow;
-        break;
-      default:
-        throw new Error("Invalid category!");
-    }
-
     const bookedDateRange = {
       start: startDateObj.toDate(),
       end: endDateObj.toDate()
