@@ -5,6 +5,7 @@ const User = require("../models/User");
 const ListingBiking = require("../models/ListingBiking");
 const ListingCamping = require("../models/ListingCamping");
 const ListingSkiSnow = require("../models/ListingSkiSnow");
+const Review = require("../models/Review")
 
 router.post('/create', async (req, res) => {
     const {reservationId, rating, comment, email} = req.body;
@@ -44,6 +45,22 @@ router.post('/create', async (req, res) => {
         };
         await reservation.save();
         console.log('Reservation updated with review');
+
+        console.log('Creating new Review document');
+        const newReview = new Review({
+            reservationId: reservation._id,
+            user: user._id,
+            rating,
+            comment
+        });
+        const savedReview = await newReview.save();
+        console.log('New Review document created:', savedReview._id);
+
+        // Update the reservation with the review reference
+        console.log('Updating reservation with review reference');
+        reservation.review = savedReview._id;
+        await reservation.save();
+        console.log('Reservation updated with review reference');
 
         // Find the corresponding listing based on the category
         console.log('Finding listing model for category:', reservation.category);

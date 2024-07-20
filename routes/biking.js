@@ -86,7 +86,7 @@ router.post("/create", upload.array("listingPhotos"), async (req, res) => {
     }
 
     // Create the title based on gender, brand, category, and size
-    const title = `${gender} ${brand} Bike, ${size}`;
+    const title = `${type} ${brand}, ${size}`;
 
     // Geocode the address using Google Maps API
     const response = await googleMapsClient.geocode({

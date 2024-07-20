@@ -163,96 +163,20 @@ router.get("/:userId/ownerGear", async (req, res) => {
     try {
       //we will search Users and get the user with that userID
       const { userId } = req.params;
+      console.log(userId)
       const bikingListings = await ListingBiking.find({ creator: userId }).populate("creator");
       const campingListings = await ListingCamping.find({ creator: userId }).populate("creator");
       const skiSnowListings = await ListingSkiSnow.find({ creator: userId }).populate("creator");
       const listings = [...bikingListings, ...campingListings, ...skiSnowListings];
+      console.log(listings)
       res.status(200).json(listings);
+      
     } catch (err) {
       console.log(err);
       res.status(404).json({ message: "Can not find listings!", error: err.message });
     }
 });
-/* GET RESERVATION LIST */
-router.get("/:userId/reservations", async (req, res) => {
-  try {
-    const { userId } = req.params;
-    const reservations = await Booking.aggregate([
-      { $match: { hostId: new mongoose.Types.ObjectId(userId) } },
-      {
-        $lookup: {
-          from: "listingbikings",
-          localField: "listingId",
-          foreignField: "_id",
-          as: "listingBiking",
-        },
-      },
-      {
-        $lookup: {
-          from: "listingcampings",
-          localField: "listingId",
-          foreignField: "_id",
-          as: "listingCamping",
-        },
-      },
-      {
-        $lookup: {
-          from: "listingskisnows",
-          localField: "listingId",
-          foreignField: "_id",
-          as: "listingSkiSnow",
-        },
-      },
-      {
-        $lookup: {
-          from: "users",
-          localField: "customerId",
-          foreignField: "_id",
-          as: "customer",
-        },
-      },
-      {
-        $lookup: {
-          from: "users",
-          localField: "hostId",
-          foreignField: "_id",
-          as: "host",
-        },
-      },
-      {
-        $project: {
-          _id: 1,
-          customerId: 1,
-          hostId: 1,
-          listingId: 1,
-          startDate: 1,
-          endDate: 1,
-          totalPrice: 1,
-          listing: {
-            $cond: [
-              { $gt: [{ $size: "$listingBiking" }, 0] },
-              { $arrayElemAt: ["$listingBiking", 0] },
-              {
-                $cond: [
-                  { $gt: [{ $size: "$listingCamping" }, 0] },
-                  { $arrayElemAt: ["$listingCamping", 0] },
-                  { $arrayElemAt: ["$listingSkiSnow", 0] },
-                ],
-              },
-            ],
-          },
-          customer: { $arrayElemAt: ["$customer", 0] },
-          host: { $arrayElemAt: ["$host", 0] },
-        },
-      },
-    ]);
 
-    res.status(200).json(reservations);
-  } catch (err) {
-    console.log(err);
-    res.status(404).json({ message: "Can not find reservations!", error: err.message });
-  }
-});
 
 
 module.exports = router

@@ -4,7 +4,7 @@ const User = require("../models/User");
 const ListingBiking = require("../models/ListingBiking");
 const ListingCamping = require("../models/ListingCamping");
 const ListingSkiSnow = require("../models/ListingSkiSnow");
-const moment = require('moment'); // Add this line to use moment.js for date parsing
+const moment = require('moment'); 
 
 /* CREATE reservation */
 router.post("/create", async (req, res) => {
@@ -125,7 +125,7 @@ router.get("/:userId/reservations", async (req, res) => {
   
       // Iterate over each reservation
       for (const reservation of reservations) {
-        const { listingId, category, startDate, endDate, totalPrice } = reservation;
+        const {_id, listingId, category, startDate, endDate, totalPrice } = reservation;
   
         let listing;
   
@@ -148,6 +148,7 @@ router.get("/:userId/reservations", async (req, res) => {
         if (listing) {
           // Add the retrieved listing along with start date, end date, and total price to the array
           listingsWithDetails.push({
+            reservationId: _id, // Include the reservation ID
             listing,
             startDate,
             endDate,
@@ -186,24 +187,77 @@ router.post("/chatId", async (req, res) => {
       return res.status(404).json({ message: "Reservation not found" });
     }
 
-    // // Update the user's reservationList with the new information
-    // await User.findByIdAndUpdate(
-    //   updatedReservation.customerId,
-    //   { 
-    //     $set: { 
-    //       "reservationList.$[elem].firebaseChatId": chatId 
-    //     }
-    //   },
-    //   { 
-    //     arrayFilters: [{ "elem.reservationId": reservationId }],
-    //     new: true
-    //   }
-    // );
-
     res.status(200).json({ message: "ChatId added successfully", reservation: updatedReservation });
   } catch (err) {
     console.error("Error updating reservation with chatId:", err);
     res.status(500).json({ message: "Server error", error: err.message });
+  }
+});
+
+//get reservation images
+router.get("/:chatId/gears", async (req, res) => {
+  try {
+    const { chatId } = req.params;
+    console.log("Reservation chatId: ", chatId);
+
+    // Find all the reservations with the matching firebaseChatId
+    const reservations = await Reservation.find({ firebaseChatId: chatId });
+    console.log("Current reservations", reservations);
+
+    if (reservations.length === 0) {
+      return res.status(404).json({ message: "No reservations found" });
+    }
+
+    const reservedGearsInfo = [];
+
+    // Iterate through all reservations
+    for (const reservation of reservations) {
+      const { listingId, category } = reservation;
+
+      let listing;
+
+      // Find the corresponding listing based on the category
+      switch (category) {
+        case "Biking":
+          listing = await ListingBiking.findById(listingId).populate("creator");
+          break;
+        case "Camping":
+          listing = await ListingCamping.findById(listingId).populate("creator");
+          break;
+        case "Snowboard":
+        case "Ski":
+          listing = await ListingSkiSnow.findById(listingId).populate("creator");
+          break;
+        default:
+          console.log(`Invalid category: ${category} for listingId: ${listingId}`);
+          continue; // Skip this iteration if category is invalid
+      }
+
+      if (listing) {
+        // Get the title and first image from the listing
+        const gearInfo = {
+          title: listing.title,
+          photo: listing.listingPhotoPaths[0], // Assuming the first image in the array is the profile image
+          category: category,
+          listingId: listingId
+        };
+
+        reservedGearsInfo.push(gearInfo);
+      } else {
+        console.log(`Listing not found for listingId: ${listingId}`);
+      }
+    }
+
+    if (reservedGearsInfo.length > 0) {
+      // console.log("Result form: ", reservedGearsInfo);
+      res.json(reservedGearsInfo);
+    } else {
+      res.status(404).json({ message: "No gear information found for the reservations" });
+    }
+
+  } catch (err) {
+    console.log(err);
+    res.status(500).json({ message: "Server error" });
   }
 });
 module.exports = router;

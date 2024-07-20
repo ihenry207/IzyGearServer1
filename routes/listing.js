@@ -80,7 +80,7 @@ router.post("/create", upload.array("listingPhotos"), async (req, res) => {
       }
     }
 
-    const title = `${gender} ${brand} ${category}, ${size} cm`;
+    const title = `${brand} ${category}, ${size}`;
 
     const response = await googleMapsClient.geocode({
       params: {

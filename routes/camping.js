@@ -41,6 +41,7 @@ router.post("/create", upload.array("listingPhotos"), async (req, res) => {
       creatorFirebaseUid,//firebaseUid of customer
     } = req.body;
     const listingPhotos = req.files;
+    console.log("Received files:", req.files);
 
     if (!listingPhotos) {
       return res.status(400).send("No file uploaded.");
@@ -85,7 +86,7 @@ router.post("/create", upload.array("listingPhotos"), async (req, res) => {
       }
     }
 
-    const title = `${brand} ${name}`;
+    const title = `${brand} ${size}`;
 
     // Geocode the address using Google Maps API
     const response = await googleMapsClient.geocode({

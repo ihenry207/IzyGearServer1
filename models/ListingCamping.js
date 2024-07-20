@@ -18,16 +18,24 @@ const ListingCampingSchema = new mongoose.Schema(
       type: String,
       required: true,
     },
+    type: {
+      type: String,
+      required: false,
+      default: '',
+    },
     name: {
       type: String,
-      required: true,
+      required: false,
+      default: '',
     },
     gender: {
       type: String,
-      required: true,
+      default:'',
+      required: false,
     },
     size: {
       type: String,
+      default:'',
       required: false,
     },
     price: {
@@ -64,7 +72,8 @@ const ListingCampingSchema = new mongoose.Schema(
     ],
     title: {
       type: String,
-      required: true,
+      default:'',
+      required: false,
     },
     BookedDates: {
       type: Array,
