@@ -140,7 +140,7 @@ router.get("/", async (req, res) => {
   console.log("Received query parameters camping:", req.query);
 
   try {
-    const filterConditions = {};
+    const filterConditions = {status: 'active'};
 
     if (category) filterConditions.category = category;
     if (subcategory) filterConditions.subcategory = subcategory;

@@ -133,7 +133,7 @@ router.get("/", async (req, res) => {
   console.log("Received query parameters skisnow:", req.query);
 
   try {
-    const filterConditions = {};
+    const filterConditions = {status: 'active'};
 
     if (category) filterConditions.category = category;
     if (brand) filterConditions.brand = brand;
@@ -220,5 +220,7 @@ router.get("/:listingId", async (req, res) => {
     res.status(404).json({ message: "Listing can not found!", error: err.message })
   }
 })
+
+//make an item inactive
 
 module.exports = router

@@ -13,7 +13,7 @@ async function sendReviewRequestEmail(reservation) {
         return;
     }
 
-    const reviewLink = `http://192.175.1.221:3000/reviews/${reservation._id}`;
+    const reviewLink = `http://192.168.1.66:3000/reviews/${reservation._id}`;
 
     const mailOptions = {
         from: `"IzyGear Team" <${process.env.EMAIL_USER}>`,

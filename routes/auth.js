@@ -116,10 +116,6 @@ router.post("/login", async (req, res) => {
       lastName: user.lastName,
       email: user.email,
       profileImagePath: user.profileImagePath,
-      gearList: user.GearList,
-      wishList: user.wishList,
-      ownerGearList: user.OwnerGearList,
-      reservationList: user.reservationList,
     };
     
     res.status(200).json({ token, user: userInfo });

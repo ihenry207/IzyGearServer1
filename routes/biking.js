@@ -141,7 +141,7 @@ router.get("/", async (req, res) => {
   console.log("Received query parameters biking:", req.query);
 
   try {
-    const filterConditions = {};
+    const filterConditions = {status: 'active'};
 
     if (category) filterConditions.category = category;
     if (brand) filterConditions.brand = brand;

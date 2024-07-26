@@ -2,9 +2,30 @@ const router = require("express").Router();
 const mongoose = require("mongoose");
 const Booking = require("../models/Booking");
 const User = require("../models/User");
+const sharp = require("sharp");
+const { S3Client, DeleteObjectCommand } = require("@aws-sdk/client-s3");
+const { Upload } = require("@aws-sdk/lib-storage");
+const multer = require('multer');
+const upload = multer({ storage: multer.memoryStorage() });
+const ListingSkiSnow = require("../models/ListingSkiSnow");
 const ListingBiking = require("../models/ListingBiking");
 const ListingCamping = require("../models/ListingCamping");
-const ListingSkiSnow = require("../models/ListingSkiSnow");
+const { v4: uuidv4 } = require('uuid');
+const path = require('path');
+const { Client } = require('@googlemaps/google-maps-services-js');
+const googleMapsClient = new Client({});
+
+// Load environment variables
+require("dotenv").config();
+
+// Create an instance of S3Client
+const s3Client = new S3Client({
+  region: process.env.AWS_REGION,
+  credentials: {
+    accessKeyId: process.env.AWS_ACCESS_KEY_ID,
+    secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY,
+  },
+});
 
 
 /* GET Gear LIST, Booked Gear */
@@ -13,41 +34,38 @@ router.get("/:userId/gears", async (req, res) => {
     const { userId } = req.params;
     console.log("Booking Infos: ", userId)
     
-    // Find all bookings with the matching customerId
     const bookings = await Booking.find({ customerId: userId });
     console.log("current Bookings", bookings)
 
-    // Array to store the retrieved listings
     const listingsWithDetails = [];
 
-    // Iterate over each booking
     for (const booking of bookings) {
       const { listingId, category, startDate, endDate } = booking;
 
       let listing;
 
-      // Find the corresponding listing based on the category
       switch (category) {
         case "Biking":
-          listing = await ListingBiking.findById(listingId).populate("creator");
+          listing = await ListingBiking.findOne({ _id: listingId, status: 'active' }).populate("creator");
           break;
         case "Camping":
-          listing = await ListingCamping.findById(listingId).populate("creator");
+          listing = await ListingCamping.findOne({ _id: listingId, status: 'active' }).populate("creator");
           break;
         case "Snowboard":
         case "Ski":
-          listing = await ListingSkiSnow.findById(listingId).populate("creator");
+          listing = await ListingSkiSnow.findOne({ _id: listingId, status: 'active' }).populate("creator");
           break;
         default:
           continue;
       }
 
-      // Add the retrieved listing along with start and end dates to the array
-      listingsWithDetails.push({
-        listing,
-        startDate,
-        endDate,
-      });
+      if (listing) {
+        listingsWithDetails.push({
+          listing,
+          startDate,
+          endDate,
+        });
+      }
     }
     console.log("Listings with Details: ",listingsWithDetails)
 
@@ -107,11 +125,10 @@ router.patch("/:userId/:category/:listingId", async (req, res) => {
   }
 });
 
-// Get items inside the wishList
 router.get("/:userId/wishlist", async (req, res) => {
   try {
+    console.log("fetching wishList items")
     const { userId } = req.params;
-    // Find the user by userId
     const user = await User.findById(userId);
     if (!user) {
       return res.status(404).json({ error: "User not found" });
@@ -122,61 +139,251 @@ router.get("/:userId/wishlist", async (req, res) => {
       return res.status(200).json({ message: "Wishlist is empty" });
     }
 
-    const listings = [];
+    // Filter out any items that don't have an active status
+    const activeWishListItems = wishListItems.filter(item => item.status === 'active');
 
-    for (const item of wishListItems) {
-      const { listingId, listingType } = item;
-      let listing;
-
-      switch (listingType) {
-        case "Biking":
-          listing = await ListingBiking.findById(listingId).populate("creator");
-          break;
-        case "Camping":
-          listing = await ListingCamping.findById(listingId).populate("creator");
-          break;
-        case "Snowboard":
-          listing = await ListingSkiSnow.findById(listingId).populate("creator");
-          break;
-        case "Ski":
-          listing = await ListingSkiSnow.findById(listingId).populate("creator");
-          break;
-        default:
-          continue;
-      }
-
-      if (listing) {
-        listings.push(listing);
-      }
-    }
-
-    res.status(200).json(listings);
+    res.status(200).json(activeWishListItems);
   } catch (err) {
     console.log(err);
     res.status(500).json({ error: "Server error" });
   }
-}); 
-
-
-/* GET GEAR, ones you own LIST, easy way fo doing it is by searching user and OwnerGearList */
-router.get("/:userId/ownerGear", async (req, res) => {
-    try {
-      //we will search Users and get the user with that userID
-      const { userId } = req.params;
-      console.log(userId)
-      const bikingListings = await ListingBiking.find({ creator: userId }).populate("creator");
-      const campingListings = await ListingCamping.find({ creator: userId }).populate("creator");
-      const skiSnowListings = await ListingSkiSnow.find({ creator: userId }).populate("creator");
-      const listings = [...bikingListings, ...campingListings, ...skiSnowListings];
-      console.log(listings)
-      res.status(200).json(listings);
-      
-    } catch (err) {
-      console.log(err);
-      res.status(404).json({ message: "Can not find listings!", error: err.message });
-    }
 });
 
 
+/* GET GEAR, ones you own LIST */
+router.get("/:userId/ownerGear", async (req, res) => {
+  try {
+    const { userId } = req.params;
+    console.log(userId)
+    const bikingListings = await ListingBiking.find({ creator: userId, status: 'active' }).populate("creator");
+    const campingListings = await ListingCamping.find({ creator: userId, status: 'active' }).populate("creator");
+    const skiSnowListings = await ListingSkiSnow.find({ creator: userId, status: 'active' }).populate("creator");
+    const listings = [...bikingListings, ...campingListings, ...skiSnowListings];
+    // console.log(listings)
+    res.status(200).json(listings);
+    
+  } catch (err) {
+    console.log(err);
+    res.status(404).json({ message: "Can not find listings!", error: err.message });
+  }
+});
+/* GET GEAR, ones you own LIST */
+router.get("/:userId/ownerGear/profile", async (req, res) => {
+  try {
+    const { userId } = req.params;
+    console.log(userId)
+    const bikingListings = await ListingBiking.find({ creator: userId }).populate("creator");
+    const campingListings = await ListingCamping.find({ creator: userId }).populate("creator");
+    const skiSnowListings = await ListingSkiSnow.find({ creator: userId }).populate("creator");
+    const listings = [...bikingListings, ...campingListings, ...skiSnowListings];
+    // console.log(listings)
+    res.status(200).json(listings);
+    
+  } catch (err) {
+    console.log(err);
+    res.status(404).json({ message: "Can not find listings!", error: err.message });
+  }
+});
+
+//change the status of something.
+router.post("/:userId/:category/:listingId/status", async (req, res) => {
+  try {
+    const { userId, category, listingId } = req.params;
+    let ListingModel;
+
+    // Determine which model to use based on the category
+    switch (category) {
+      case "Biking":
+        ListingModel = ListingBiking;
+        break;
+      case "Camping":
+        ListingModel = ListingCamping;
+        break;
+      case "Snowboard":
+      case "Ski":
+        ListingModel = ListingSkiSnow;
+        break;
+      default:
+        return res.status(400).json({ error: "Invalid category" });
+    }
+
+    // Find the listing
+    const listing = await ListingModel.findOne({ _id: listingId, creator: userId });
+
+    if (!listing) {
+      return res.status(404).json({ error: "Listing not found or you don't have permission to modify it" });
+    }
+
+    // Toggle the status
+    listing.status = listing.status === 'active' ? 'deleted' : 'active';
+
+    // Save the updated listing
+    await listing.save();
+
+    res.status(200).json({
+      message: `Listing status updated to ${listing.status}`,
+      listingId: listing._id,
+      newStatus: listing.status
+    });
+
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: "Server error", details: err.message });
+  }
+});
+
+router.post("/updateListing", upload.array("listingPhotos"), async (req, res) => {
+  try {
+    const {
+      listingId,
+      category,
+      subcategory,
+      brand,
+      name,
+      gender,
+      size,
+      price,
+      address,
+      condition,
+      description,
+      type,
+      kind,
+      boots,
+      bindings,
+      creatorFirebaseUid,
+      existingPhotos,
+    } = req.body;
+
+    const listingPhotos = req.files;
+    
+    // Find the existing listing based on category
+    let ListingModel;
+    if (category === "Ski" || category === "Snowboard") {
+      ListingModel = ListingSkiSnow;
+    } else if (category === "Biking") {
+      ListingModel = ListingBiking;
+    } else if (category === "Camping") {
+      ListingModel = ListingCamping;
+    } else {
+      return res.status(400).json({ message: "Invalid category" });
+    }
+
+    const listing = await ListingModel.findById(listingId);
+
+    if (!listing) {
+      return res.status(404).json({ message: "Listing not found" });
+    }
+
+    // Update basic information
+    listing.brand = brand;
+    listing.gender = gender;
+    listing.size = size;
+    listing.price = price;
+    listing.condition = condition;
+    listing.description = description;
+
+    // Category-specific updates
+    if (category === "Ski" || category === "Snowboard") {
+      listing.boots = boots;
+      listing.bindings = bindings;
+    } else if (category === "Biking") {
+      listing.type = type;
+      listing.kind = kind;
+    } else if (category === "Camping") {
+      listing.subcategory = subcategory;
+      listing.name = name;
+    }
+
+    // Update address and geocode if it has changed
+    if (address !== listing.address) {
+      listing.address = address;
+      const response = await googleMapsClient.geocode({
+        params: {
+          address: address,
+          key: process.env.GOOGLE_MAPS_API_KEY,
+        },
+      });
+      const { lat, lng } = response.data.results[0].geometry.location;
+      listing.location = {
+        type: 'Point',
+        coordinates: [lng, lat],
+      };
+    }
+
+    // Handle photos
+    const existingPhotoPaths = listing.listingPhotoPaths;
+    const updatedPhotoPaths = [];
+
+    // Process existing photos
+    for (const photoPath of existingPhotoPaths) {
+      if (existingPhotos.includes(photoPath)) {
+        // Keep the photo if it's still in the existingPhotos array
+        updatedPhotoPaths.push(photoPath);
+      } else {
+        // Delete the photo if it's no longer in the existingPhotos array
+        const key = photoPath.split('.com/')[1];
+        await s3Client.send(new DeleteObjectCommand({
+          Bucket: process.env.AWS_BUCKET_NAME,
+          Key: key,
+        }));
+      }
+    }
+
+    // Upload new photos, if we do have new ones
+    if (listingPhotos && listingPhotos.length > 0) {
+      for (const file of listingPhotos) {
+        const fileExtension = path.extname(file.originalname);
+        const uniqueFileName = `${uuidv4()}${fileExtension}`;
+
+        let folderName;
+        if (category === "Ski" || category === "Snowboard") {
+          folderName = "listing-photos";
+        } else if (category === "Biking") {
+          folderName = "biking-photos";
+        } else if (category === "Camping") {
+          folderName = "camping-photos";
+        }
+
+        const uploadParams = {
+          Bucket: process.env.AWS_BUCKET_NAME,
+          Key: `${folderName}/${listing.creator}/${category}/${uniqueFileName}`,
+          Body: file.buffer,
+          ContentType: file.mimetype,
+        };
+
+        try {
+          const upload = new Upload({
+            client: s3Client,
+            params: uploadParams,
+          });
+          const response = await upload.done();
+          updatedPhotoPaths.push(response.Location);
+        } catch (error) {
+          console.error(`Error uploading image to S3:`, error);
+          continue;
+        }
+      }
+    }
+
+    listing.listingPhotoPaths = updatedPhotoPaths;
+
+    // Update the title
+    if (category === "Ski" || category === "Snowboard") {
+      listing.title = `${brand} ${category}, ${size}`;
+    } else if (category === "Biking") {
+      listing.title = `${type} ${brand}, ${size}`;
+    } else if (category === "Camping") {
+      listing.title = `${brand} ${size}`;
+    }
+
+    // Save the updated listing
+    await listing.save();
+
+    res.status(200).json(listing);
+  } catch (error) {
+    res.status(500).json({ message: "Failed to update listing", error: error.message });
+    console.log(error);
+  }
+});
 
 module.exports = router

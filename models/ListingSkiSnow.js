@@ -109,8 +109,12 @@ const ListingSnowSkiSchema = new mongoose.Schema(
         type: Date,
         default: Date.now
       }
-    }]
-
+    }],
+    status: {
+      type: String,
+      enum: ['active', 'deleted'],
+      default: 'active'
+    }
   },
   {
     timestamps: true,
