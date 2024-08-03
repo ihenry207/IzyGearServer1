@@ -30,7 +30,7 @@ const ReservationSchema = new mongoose.Schema(
         type: String,
         required: true,
       },
-      creatorFirebaseUid: {//for connecting with clients through chat
+      creatorFirebaseUid: {
         type: String,
         default: "",
       },
@@ -54,6 +54,11 @@ const ReservationSchema = new mongoose.Schema(
         createdAt: {
           type: Date,
         }
+      },
+      reservationStatus: {
+        type: String,
+        enum: ['confirmed', 'pending', 'cancelled'],
+        default: 'pending'
       }
     },
     { timestamps: true }

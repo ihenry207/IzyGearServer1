@@ -4,6 +4,7 @@ const User = require("../models/User");
 const ListingBiking = require("../models/ListingBiking");
 const ListingCamping = require("../models/ListingCamping");
 const ListingSkiSnow = require("../models/ListingSkiSnow");
+const ListingWater = require("../models/ListingWater");
 const moment = require('moment'); 
 
 /* CREATE reservation */
@@ -43,6 +44,8 @@ router.post("/create", async (req, res) => {
       case "Ski":
         ListingModel = ListingSkiSnow;
         break;
+      case "Water":
+        ListingModel = ListingWater;
       default:
         throw new Error("Invalid category!");
     }
@@ -141,6 +144,8 @@ router.get("/:userId/reservations", async (req, res) => {
           case "Ski":
             listing = await ListingSkiSnow.findById(listingId).populate("creator");
             break;
+          case "Water":
+            listing = await ListingWater.findById(listingId).populate("creator");
           default:
             continue;
         }
@@ -227,6 +232,9 @@ router.get("/:chatId/gears", async (req, res) => {
         case "Snowboard":
         case "Ski":
           listing = await ListingSkiSnow.findById(listingId).populate("creator");
+          break;
+        case "Water":
+          listing = await ListingWater.findById(listingId).populate("creator");
           break;
         default:
           console.log(`Invalid category: ${category} for listingId: ${listingId}`);

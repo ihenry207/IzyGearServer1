@@ -83,7 +83,10 @@ const ListingCampingSchema = new mongoose.Schema(
       type: String,
       default: "",
     },
-
+    rules: {
+      type: String,
+      required: false,
+    },
     averageRating: {
       type: Number,
       default: 0,

@@ -37,6 +37,7 @@ router.post("/create", upload.array("listingPhotos"), async (req, res) => {
       price,
       address,
       condition,
+      rules,
       description,
       creatorFirebaseUid,//firebaseUid of customer
     } = req.body;
@@ -116,6 +117,7 @@ router.post("/create", upload.array("listingPhotos"), async (req, res) => {
       description,
       listingPhotoPaths,
       title,
+      rules,
       creatorFirebaseUid,//firebaseUid of customer
     });
 

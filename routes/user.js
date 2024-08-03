@@ -10,6 +10,7 @@ const upload = multer({ storage: multer.memoryStorage() });
 const ListingSkiSnow = require("../models/ListingSkiSnow");
 const ListingBiking = require("../models/ListingBiking");
 const ListingCamping = require("../models/ListingCamping");
+const ListingWater = require("../models/ListingWater");
 const { v4: uuidv4 } = require('uuid');
 const path = require('path');
 const { Client } = require('@googlemaps/google-maps-services-js');
@@ -55,6 +56,9 @@ router.get("/:userId/gears", async (req, res) => {
         case "Ski":
           listing = await ListingSkiSnow.findOne({ _id: listingId, status: 'active' }).populate("creator");
           break;
+        case "Water":
+          listing = await ListingWater.findOne({ _id: listingId, status: 'active' }).populate("creator");
+          break;
         default:
           continue;
       }
@@ -98,6 +102,9 @@ router.patch("/:userId/:category/:listingId", async (req, res) => {
           break;
         case "Ski":
           listing = await ListingSkiSnow.findById(listingId).populate("creator");
+          break;
+        case "Water":
+          listing = await ListingWater.findById(listingId).populate("creator");
           break;
         default:
           return res.status(400).json({ error: "Invalid category" });
@@ -149,6 +156,25 @@ router.get("/:userId/wishlist", async (req, res) => {
   }
 });
 
+// check-wishList status
+router.get("/:userId/wishlist/check/:listingId", async (req, res) => {
+  try {
+    const { userId, listingId } = req.params;
+    const user = await User.findById(userId);
+
+    if (!user) {
+      return res.status(404).json({ error: "User not found" });
+    }
+
+    const isInWishlist = user.wishList.some(item => item._id.toString() === listingId);
+
+    res.status(200).json({ isFavorite: isInWishlist });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: "Internal server error" });
+  }
+});
+
 
 /* GET GEAR, ones you own LIST */
 router.get("/:userId/ownerGear", async (req, res) => {
@@ -157,8 +183,9 @@ router.get("/:userId/ownerGear", async (req, res) => {
     console.log(userId)
     const bikingListings = await ListingBiking.find({ creator: userId, status: 'active' }).populate("creator");
     const campingListings = await ListingCamping.find({ creator: userId, status: 'active' }).populate("creator");
+    const waterListings = await ListingWater.find({ creator: userId, status: 'active' }).populate("creator");
     const skiSnowListings = await ListingSkiSnow.find({ creator: userId, status: 'active' }).populate("creator");
-    const listings = [...bikingListings, ...campingListings, ...skiSnowListings];
+    const listings = [...bikingListings, ...campingListings, ...skiSnowListings, ...waterListings];
     // console.log(listings)
     res.status(200).json(listings);
     
@@ -175,7 +202,8 @@ router.get("/:userId/ownerGear/profile", async (req, res) => {
     const bikingListings = await ListingBiking.find({ creator: userId }).populate("creator");
     const campingListings = await ListingCamping.find({ creator: userId }).populate("creator");
     const skiSnowListings = await ListingSkiSnow.find({ creator: userId }).populate("creator");
-    const listings = [...bikingListings, ...campingListings, ...skiSnowListings];
+    const waterListings = await ListingWater.find({ creator: userId }).populate("creator");
+    const listings = [...bikingListings, ...campingListings, ...skiSnowListings, ...waterListings];
     // console.log(listings)
     res.status(200).json(listings);
     
@@ -203,6 +231,8 @@ router.post("/:userId/:category/:listingId/status", async (req, res) => {
       case "Ski":
         ListingModel = ListingSkiSnow;
         break;
+      case "Water":
+        ListingModel = ListingWater;
       default:
         return res.status(400).json({ error: "Invalid category" });
     }
@@ -264,7 +294,9 @@ router.post("/updateListing", upload.array("listingPhotos"), async (req, res) =>
       ListingModel = ListingBiking;
     } else if (category === "Camping") {
       ListingModel = ListingCamping;
-    } else {
+    } else if (category === "Water") {
+      ListingModel = ListingWater;
+    }else {
       return res.status(400).json({ message: "Invalid category" });
     }
 
@@ -292,7 +324,11 @@ router.post("/updateListing", upload.array("listingPhotos"), async (req, res) =>
     } else if (category === "Camping") {
       listing.subcategory = subcategory;
       listing.name = name;
+    } else if (category === "Water") {
+      listing.equipment = equipment;
+      listing.additionalOptions = JSON.parse(additionalOptions);
     }
+
 
     // Update address and geocode if it has changed
     if (address !== listing.address) {
@@ -342,6 +378,8 @@ router.post("/updateListing", upload.array("listingPhotos"), async (req, res) =>
           folderName = "biking-photos";
         } else if (category === "Camping") {
           folderName = "camping-photos";
+        }else if (category === "Water") {
+          folderName = "water-photos";
         }
 
         const uploadParams = {
@@ -374,6 +412,8 @@ router.post("/updateListing", upload.array("listingPhotos"), async (req, res) =>
       listing.title = `${type} ${brand}, ${size}`;
     } else if (category === "Camping") {
       listing.title = `${brand} ${size}`;
+    }else if (category === "Water") {
+      listing.title = `${equipment}, ${size}`;
     }
 
     // Save the updated listing
@@ -383,6 +423,82 @@ router.post("/updateListing", upload.array("listingPhotos"), async (req, res) =>
   } catch (error) {
     res.status(500).json({ message: "Failed to update listing", error: error.message });
     console.log(error);
+  }
+});
+
+// Update profile image
+router.put("/update-profile-image/:userId", upload.single('profileImage'), async (req, res) => {
+  try {
+    const userId = req.params.userId; 
+    const newProfileImage = req.file;
+
+    if (!newProfileImage) {
+      return res.status(400).json({ message: "No image file provided" });
+    }
+
+    // Find the user
+    const user = await User.findById(userId);
+    if (!user) {
+      return res.status(404).json({ message: "User not found" });
+    }
+
+    // Delete old image from S3 if it exists
+    if (user.profileImagePath) {
+      const oldImageKey = user.profileImagePath.split('/profile-images/').pop();
+      const deleteParams = {
+        Bucket: process.env.AWS_BUCKET_NAME,
+        Key: `profile-images/${oldImageKey}`,
+      };
+
+      try {
+        await s3Client.send(new DeleteObjectCommand(deleteParams));
+      } catch (err) {
+        console.log("Error deleting old profile image from S3:", err);
+      }
+    }
+
+    // Upload new image to S3
+    const fileExtension = path.extname(newProfileImage.originalname);
+    const uniqueFileName = `${uuidv4()}${fileExtension}`;
+
+    const uploadParams = {
+      Bucket: process.env.AWS_BUCKET_NAME,
+      Key: `profile-images/${uniqueFileName}`,
+      Body: newProfileImage.buffer,
+      ContentType: newProfileImage.mimetype,
+    };
+
+    let newProfileImagePath;
+    try {
+      const upload = new Upload({
+        client: s3Client,
+        params: uploadParams,
+      });
+      const response = await upload.done();
+      newProfileImagePath = response.Location;
+    } catch (err) {
+      console.log("Error uploading new profile image to S3:", err);
+      return res.status(500).json({ message: "Error uploading new profile image" });
+    }
+
+    // Update user in MongoDB
+    user.profileImagePath = newProfileImagePath;
+    await user.save();
+
+    res.status(200).json({ 
+      message: "Profile image updated successfully!", 
+      user: {
+        id: user._id,
+        firstName: user.firstName,
+        lastName: user.lastName,
+        email: user.email,
+        profileImagePath: user.profileImagePath
+      }
+    });
+
+  } catch (err) {
+    console.log(err);
+    res.status(500).json({ message: "Profile image update failed!", error: err.message });
   }
 });
 

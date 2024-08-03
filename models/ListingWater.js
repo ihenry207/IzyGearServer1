@@ -1,26 +1,31 @@
 const mongoose = require("mongoose");
-const ListingSnowSkiSchema = new mongoose.Schema(
+
+const ListingWaterSchema = new mongoose.Schema(
   {
     creator: {
       type: mongoose.Schema.Types.ObjectId,
-      ref: 'User',
-      required: true,
+      ref: "User",
     },
     category: {
       type: String,
       required: true,
     },
+    equipment: {
+      type: String,
+      required: true,
+    },
     brand: {
       type: String,
-      required: true,
+      required: false,
     },
-    gender: {
+    size: {
       type: String,
       required: true,
     },
-    size: {
-      type: Number,
-      required: true,
+    title: {
+      type: String,
+      default:'',
+      required: false,
     },
     price: {
       type: Number,
@@ -45,38 +50,29 @@ const ListingSnowSkiSchema = new mongoose.Schema(
       type: String,
       required: true,
     },
-    boots: {
-      type: Boolean,
-      required: true,
-    },
-    bindings: {
-      type: Boolean,
-      required: true,
-    },
     description: {
       type: String,
       required: true,
+    },
+    rules: {
+      type: String,
+      required: false,
     },
     listingPhotoPaths: [
       {
         type: String,
       },
     ],
-    title: {
-      type: String,
-      required: true,
-    },
-    BookedDates: {
-      type: Array,
-      default: [],
+    additionalOptions: {
+      withPaddles: { type: Boolean, default: false },
+      withLifeJackets: { type: Boolean, default: false },
+      withBindings: { type: Boolean, default: false },
+      withRope: { type: Boolean, default: false },
+      withLeash: { type: Boolean, default: false },
     },
     creatorFirebaseUid: {
       type: String,
       default: "",
-    },
-    rules: {
-      type: String,
-      required: false,
     },
     averageRating: {
       type: Number,
@@ -118,12 +114,20 @@ const ListingSnowSkiSchema = new mongoose.Schema(
       type: String,
       enum: ['active', 'deleted'],
       default: 'active'
-    }
+    },
+    BookedDates: {
+      type: Array,
+      default: [],
+    },
   },
   {
     timestamps: true,
   }
 );
-ListingSnowSkiSchema.index({ location: '2dsphere' });
-const ListingSkiSnow = mongoose.model("ListingSkiSnow", ListingSnowSkiSchema);
-module.exports = ListingSkiSnow;
+
+// Create a geospatial index on the location field
+ListingWaterSchema.index({ location: '2dsphere' });
+
+const ListingWater = mongoose.model("ListingWater", ListingWaterSchema);
+
+module.exports = ListingWater;

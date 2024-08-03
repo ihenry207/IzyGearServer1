@@ -11,6 +11,7 @@ const authRoutes = require("./routes/auth.js")
 const listingSkiSnowRoutes = require("./routes/listing.js")
 const listingBikingRoutes = require("./routes/biking.js");
 const listingCampingRoutes = require("./routes/camping.js");
+const listingWaterRoutes = require("./routes/water.js")
 const bookingRoutes = require("./routes/Booking.js")
 const userRoutes = require("./routes/user.js")
 const reservationRoutes = require("./routes/Reservation.js")
@@ -27,12 +28,6 @@ const corsOptions = {
     allowedHeaders: ["Content-Type", "Authorization"],
   };
 
-// const corsOptions = {
-//     origin: "*",
-//     methods: ["GET", "POST", "PUT", "PATCH", "DELETE"],
-//     allowedHeaders: ["Content-Type", "Authorization"],
-// };
-
 app.use(cors(corsOptions))
 app.use(express.json())
 app.use(express.static('public'))
@@ -41,6 +36,7 @@ app.use("/auth", authRoutes);
 app.use("/gears/skisnow", listingSkiSnowRoutes);
 app.use("/gears/biking", listingBikingRoutes);
 app.use("/gears/camping", listingCampingRoutes);
+app.use("/gears/water", listingWaterRoutes)
 app.use("/bookings", bookingRoutes);
 app.use("/users", userRoutes);
 app.use("/reservations", reservationRoutes);

@@ -4,7 +4,7 @@ const { S3Client } = require("@aws-sdk/client-s3");
 const { Upload } = require("@aws-sdk/lib-storage");
 const multer = require('multer');
 const upload = multer({ storage: multer.memoryStorage() });
-const Listing = require("../models/ListingSkiSnow");
+const ListingWater = require("../models/ListingWater");
 const User = require("../models/User");
 const { v4: uuidv4 } = require('uuid');
 const path = require('path');
@@ -29,19 +29,19 @@ router.post("/create", upload.array("listingPhotos"), async (req, res) => {
     const {
       creator,
       category,
+      equipment,
       brand,
-      gender,
       size,
       price,
       address,
       condition,
-      boots,
-      bindings,
       description,
       rules,
-      creatorFirebaseUid,//firebaseUid of customer
+      creatorFirebaseUid,
+      additionalOptions
     } = req.body;
     const listingPhotos = req.files;
+    console.log("Received files:", req.files);
 
     if (!listingPhotos) {
       return res.status(400).send("No file uploaded.");
@@ -63,7 +63,7 @@ router.post("/create", upload.array("listingPhotos"), async (req, res) => {
 
       const uploadParams = {
         Bucket: process.env.AWS_BUCKET_NAME,
-        Key: `listing-photos/${creator}/${category}/${uniqueFileName}`,
+        Key: `water-photos/${creator}/${category}/${equipment}/${uniqueFileName}`,
         Body: file.buffer,
         ContentType: file.mimetype,
       };
@@ -81,22 +81,34 @@ router.post("/create", upload.array("listingPhotos"), async (req, res) => {
       }
     }
 
-    const title = `${brand} ${category}, ${size}`;
+    const title = `${equipment} ${size}`;
 
+    // Geocode the address using Google Maps API
     const response = await googleMapsClient.geocode({
       params: {
-        address: address,
+        address,
         key: process.env.GOOGLE_MAPS_API_KEY,
       },
     });
 
     const { lat, lng } = response.data.results[0].geometry.location;
 
-    const newListing = new Listing({
+    let parsedAdditionalOptions = {};
+    if (additionalOptions) {
+      try {
+        parsedAdditionalOptions = JSON.parse(additionalOptions);
+      } catch (error) {
+        console.error("Error parsing additionalOptions:", error);
+        // If parsing fails, use the additionalOptions as is
+        parsedAdditionalOptions = additionalOptions;
+      }
+    }
+
+    const newListing = new ListingWater({
       creator,
       category,
+      equipment,
       brand,
-      gender,
       size,
       price,
       address,
@@ -105,13 +117,12 @@ router.post("/create", upload.array("listingPhotos"), async (req, res) => {
         coordinates: [lng, lat],
       },
       condition,
-      boots,
-      bindings,
       description,
+      rules,
       listingPhotoPaths,
       title,
-      rules,
       creatorFirebaseUid,
+      additionalOptions: parsedAdditionalOptions
     });
 
     await newListing.save();
@@ -122,35 +133,26 @@ router.post("/create", upload.array("listingPhotos"), async (req, res) => {
     });
 
     res.status(201).json(newListing);
-  } catch (error) {
-    res.status(409).json({ message: error.message });
+  } catch (err) {
+    res.status(409).json({ message: "Failed to create Listing", error: err.message });
+    console.log(err);
   }
 });
 
-
 /* GET LISTINGS BY CATEGORY */
 router.get("/", async (req, res) => {
-  const { location, distance, category, brand, gender, size, 
+  const { location, distance, category, equipment, brand, size, 
     condition, price, startDate, endDate } = req.query;
-  console.log("Received query parameters skisnow:", req.query);
+  console.log("Received query parameters water:", req.query);
 
   try {
     const filterConditions = {status: 'active'};
 
     if (category) filterConditions.category = category;
-    if (brand) filterConditions.brand = brand;
-    if (gender) filterConditions.gender = gender;
+    if (equipment) filterConditions.equipment = equipment;
+    //if (brand) filterConditions.brand = brand;
+    if (size) filterConditions.size = size;
     if (condition) filterConditions.condition = condition;
-
-    // Handle size range
-    if (size) {
-      if (size === "160+") {
-        filterConditions.size = { $gte: 160 };
-      } else {
-        const [minSize, maxSize] = size.split("-");
-        filterConditions.size = { $gte: parseInt(minSize), $lte: parseInt(maxSize) };
-      }
-    }
 
     // Handle price range
     if (price) {
@@ -161,8 +163,9 @@ router.get("/", async (req, res) => {
         filterConditions.price = { $gte: parseInt(minPrice), $lte: parseInt(maxPrice) };
       }
     }
+
+    // Handle location and distance
     if (location && distance !== "60+" && distance !== "") {
-      // Convert location to latitude and longitude using Google Maps Geocoding API
       const response = await googleMapsClient.geocode({
         params: {
           address: location,
@@ -171,13 +174,9 @@ router.get("/", async (req, res) => {
       });
       const { lat, lng } = response.data.results[0].geometry.location;
     
-      // Extract the maximum distance from the distance range
       const maxDistance = parseInt(distance.split("-")[1]);
+      const maxDistanceInMeters = maxDistance * 1609.34;
     
-      // Convert maximum distance to meters
-      const maxDistanceInMeters = maxDistance * 1609.34; // 1 mile = 1609.34 meters
-    
-      // Create a MongoDB query to filter listings based on location and distance
       filterConditions.location = {
         $near: {
           $geometry: {
@@ -204,7 +203,7 @@ router.get("/", async (req, res) => {
       };
     }
 
-    const listings = await Listing.find(filterConditions).populate("creator");
+    const listings = await ListingWater.find(filterConditions).populate("creator");
     res.status(200).json(listings);
   } catch (err) {
     res.status(404).json({ message: "Fail to fetch listings", error: err.message });
@@ -212,17 +211,15 @@ router.get("/", async (req, res) => {
   }
 });
 
-  /* LISTING DETAILS */
+/* LISTING DETAILS */
 router.get("/:listingId", async (req, res) => {
   try {
     const { listingId } = req.params
-    const listing = await Listing.findById(listingId).populate("creator")
+    const listing = await ListingWater.findById(listingId).populate("creator")
     res.status(202).json(listing)
   } catch (err) {
     res.status(404).json({ message: "Listing can not found!", error: err.message })
   }
-})
+});
 
-//make an item inactive
-
-module.exports = router
+module.exports = router;

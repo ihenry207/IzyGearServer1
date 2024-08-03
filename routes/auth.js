@@ -110,12 +110,13 @@ router.post("/login", async (req, res) => {
     const token = jwt.sign({ id: user._id }, process.env.JWT_SECRET);
     
     // Create an object with the desired user information
-    const userInfo = {
+    const userInfo = {//here you will also return createdAt
       userId: user._id,
       firstName: user.firstName,
       lastName: user.lastName,
       email: user.email,
       profileImagePath: user.profileImagePath,
+      createdAt: user.createdAt,
     };
     
     res.status(200).json({ token, user: userInfo });

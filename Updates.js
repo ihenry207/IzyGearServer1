@@ -3,34 +3,27 @@ require('dotenv').config();
 const ListingBiking = require("./models/ListingBiking");
 const ListingCamping = require("./models/ListingCamping");
 const ListingSkiSnow = require("./models/ListingSkiSnow");
+const ListinWater = require("./models/ListingWater");
 
-async function updateAllListingsWithStatus() {
+async function updateListingsWithRules() {
   try {
     // Connect to your MongoDB database
     await mongoose.connect(process.env.MONGO_URL, {
-        dbName: "IzyGear",
+      dbName: "IzyGear",
     });
 
-    const models = [ListingBiking, ListingCamping, ListingSkiSnow];
+    const listingModels = [ListingBiking, ListingCamping, ListingSkiSnow];
 
-    for (const Model of models) {
-      // Update existing documents without status
-      const updateResult = await Model.updateMany(
-        { status: { $exists: false } },
-        { $set: { status: 'active' } }
+    for (const ListingModel of listingModels) {
+      const updateResult = await ListingModel.updateMany(
+        { rules: { $exists: false } },
+        { $set: { rules: "" } }
       );
 
-      // Set default for new documents
-      await Model.updateMany(
-        {},
-        { $setOnInsert: { status: 'active' } },
-        { upsert: true }
-      );
-
-      console.log(`${Model.modelName} listings updated:`, updateResult.modifiedCount);
+      console.log(`${ListingModel.modelName} updated:`, updateResult.modifiedCount);
     }
 
-    console.log('All listings have been updated with the status field.');
+    console.log('All applicable listings have been updated with the rules field.');
   } catch (error) {
     console.error('Error updating listings:', error);
   } finally {
@@ -39,4 +32,4 @@ async function updateAllListingsWithStatus() {
   }
 }
 
-updateAllListingsWithStatus();
+updateListingsWithRules();
