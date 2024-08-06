@@ -1,5 +1,4 @@
 const router = require("express").Router();
-const sharp = require("sharp");
 const { S3Client } = require("@aws-sdk/client-s3");
 const { Upload } = require("@aws-sdk/lib-storage");
 const multer = require('multer');
@@ -61,11 +60,6 @@ router.post("/create", upload.array("listingPhotos"), async (req, res) => {
     for (const file of listingPhotos) {
       const fileExtension = path.extname(file.originalname);
       const uniqueFileName = `${uuidv4()}${fileExtension}`;
-
-      // Resize the image
-      // const resizedImageBuffer = await sharp(file.buffer)
-      //   .resize({ width: 300, height: 270, fit: "cover" })
-      //   .toBuffer();
 
       const uploadParams = {
         Bucket: process.env.AWS_BUCKET_NAME,
