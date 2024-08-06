@@ -17,13 +17,19 @@ const userRoutes = require("./routes/user.js")
 const reservationRoutes = require("./routes/Reservation.js")
 const reviewRoutes = require('./routes/Reviews.js');
 
+// Health check route
+app.get('/health', (req, res) => {
+  res.status(200).send('OK');
+});
+
 //Configure CORS options
 const corsOptions = {
-    origin: ["http://localhost:3000", 'http://192.168.33.227:3000',
-"http://192.175.1.221:3000", "http://192.175.1.221:3001", 
-"http://192.168.181.1:3000", "http://192.168.181.1:3001", 
-"http://192.168.1.64:3000", "http://192.168.1.64:3000", 
-"http://192.168.1.66:3000", "http://192.168.1.66:3001"], // Allow requests from your computer's IP or hostname
+    origin: [
+      "http://localhost:3000",
+      `http://${process.env.EC2_PUBLIC_IP}:3000`,
+      `http://${process.env.EC2_PUBLIC_IP}:3001`,
+      // Add any other necessary origins
+    ],
     methods: ["GET", "POST", "PUT", "PATCH", "DELETE"],
     allowedHeaders: ["Content-Type", "Authorization"],
   };
@@ -41,11 +47,12 @@ app.use("/bookings", bookingRoutes);
 app.use("/users", userRoutes);
 app.use("/reservations", reservationRoutes);
 app.use("/reviews", reviewRoutes); 
+
 //Mongoose setup
-const PORT = 3001
+const PORT = process.env.PORT || 3001
 mongoose.connect(process.env.MONGO_URL, {
     dbName: "IzyGear",
 })
 .then(()=>{
-    app.listen(PORT,'0.0.0.0',() => console.log(`Server Port: ${PORT}`));
-}).catch((err) =>console.log(`${err} did not connect`))
+    app.listen(PORT, '0.0.0.0', () => console.log(`Server Port: ${PORT}`));
+}).catch((err) => console.log(`${err} did not connect`))
